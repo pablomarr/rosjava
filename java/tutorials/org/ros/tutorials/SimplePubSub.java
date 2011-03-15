@@ -19,7 +19,6 @@ import com.google.common.collect.Sets;
 
 import org.apache.xmlrpc.XmlRpcException;
 import org.ros.MessageListener;
-import org.ros.internal.node.ConnectionJobQueue;
 import org.ros.internal.node.RemoteException;
 import org.ros.internal.node.client.MasterClient;
 import org.ros.internal.node.client.SlaveClient;
@@ -36,8 +35,11 @@ import org.ros.internal.transport.ProtocolDescription;
 import org.ros.internal.transport.ProtocolNames;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 /**
  * @author damonkohler@google.com (Damon Kohler)
@@ -56,20 +58,20 @@ public class SimplePubSub {
     masterClient = new MasterClient(masterServer.getUri());
     slaveServer = new SlaveServer("/foo", masterClient, "localhost", 0);
     slaveServer.start();
-    ConnectionJobQueue jobQueue = new ConnectionJobQueue();
+    Executor executor = Executors.newCachedThreadPool();
 
     TopicDefinition topicDefinition = new TopicDefinition("/hello",
         MessageDefinition.createFromMessage(new org.ros.message.std.String()));
     SlaveIdentifier pubSlaveIdentifer = new SlaveIdentifier("/pub", new URI("http://fake:1234"));
     PublisherIdentifier publisherIdentifier = new PublisherIdentifier(pubSlaveIdentifer,
         topicDefinition);
-    Publisher publisher = new Publisher(topicDefinition, "localhost", 0);
-    publisher.start();
+    Publisher publisher = new Publisher(topicDefinition);
+    publisher.start(new InetSocketAddress(0));
     slaveServer.addPublisher(publisher);
 
     SlaveIdentifier subSlaveIdentifier = new SlaveIdentifier("/bloop", new URI("http://fake:5678"));
     Subscriber<org.ros.message.std.String> subscriber = Subscriber.create(subSlaveIdentifier,
-        topicDefinition, org.ros.message.std.String.class, jobQueue);
+        topicDefinition, org.ros.message.std.String.class, executor);
     subscriber.addMessageListener(new MessageListener<org.ros.message.std.String>() {
       @Override
       public void onNewMessage(org.ros.message.std.String message) {
