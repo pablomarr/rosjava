@@ -17,12 +17,10 @@ package org.ros;
 
 import com.google.common.base.Preconditions;
 
-import org.ros.internal.namespace.RosName;
-
 import org.apache.xmlrpc.XmlRpcException;
 import org.ros.exceptions.RosInitException;
 import org.ros.exceptions.RosNameException;
-import org.ros.internal.node.ConnectionJobQueue;
+import org.ros.internal.namespace.RosName;
 import org.ros.internal.node.RemoteException;
 import org.ros.internal.node.client.MasterClient;
 import org.ros.internal.node.server.SlaveIdentifier;
@@ -33,13 +31,16 @@ import org.ros.internal.topic.TopicDefinition;
 import org.ros.logging.RosLog;
 import org.ros.message.Message;
 import org.ros.message.Time;
-import org.ros.namespace.Namespace;
 import org.ros.namespace.NameResolver;
+import org.ros.namespace.Namespace;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 /**
  * @author ethan.rublee@gmail.com (Ethan Rublee)
@@ -68,8 +69,7 @@ public class Node implements Namespace {
    */
   private RosLog log;
   private boolean initialized;
-  private ConnectionJobQueue jobQueue;
-
+  private Executor executor;
   private String masterUri;
 
   /**
@@ -101,7 +101,8 @@ public class Node implements Namespace {
       Preconditions.checkNotNull(masterClient);
       Preconditions.checkNotNull(slaveServer);
       Publisher<MessageType> pub = new Publisher<MessageType>(resolveName(topic_name), clazz);
-      pub.start(hostName);
+      // TODO(damonkohler): Allow passing in an address to bind to?
+      pub.start(new InetSocketAddress(0));
       slaveServer.addPublisher(pub.publisher);
       return pub;
     } catch (IOException e) {
@@ -181,7 +182,6 @@ public class Node implements Namespace {
    * @throws RosInitException
    */
   public void init() throws RosInitException {
-
     try {
       init(Ros.getMasterUri().toString(), Ros.getHostName());
     } catch (URISyntaxException e) {
@@ -221,6 +221,7 @@ public class Node implements Namespace {
             "Successfully initiallized " + nodeName.toString() + " with:\n\tmaster @ "
                 + masterClient.getRemoteUri().toString() + "\n\tListening on port: "
                 + slaveServer.getUri().toString());
+
         slaveIdentifier = slaveServer.toSlaveIdentifier();
       } catch (MalformedURLException e) {
         throw new RosInitException("invalid ROS slave URI");
@@ -229,8 +230,8 @@ public class Node implements Namespace {
       }
 
       // Create factory and job queue for generating publisher/subscriber impls.
-      jobQueue = new ConnectionJobQueue();
-      pubSubFactory = new PubSubFactory(slaveIdentifier, jobQueue);
+      executor = Executors.newCachedThreadPool();
+      pubSubFactory = new PubSubFactory(slaveIdentifier, executor);
 
       initialized = true;
     } catch (IOException e) {
