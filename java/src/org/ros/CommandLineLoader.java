@@ -20,13 +20,15 @@ import org.ros.exceptions.RosInitException;
 import org.ros.exceptions.RosNameException;
 import org.ros.internal.loader.CommandLine;
 import org.ros.internal.loader.EnvironmentVariables;
-import org.ros.internal.namespace.RosName;
+import org.ros.internal.namespace.GraphName;
 import org.ros.namespace.NameResolver;
 import org.ros.namespace.Namespace;
 
 import java.io.File;
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -82,11 +84,12 @@ public class CommandLineLoader extends RosLoader {
    * Create NodeContext according to ROS command-line and environment
    * specification.
    */
+  @Override
   public NodeContext createContext() throws RosInitException {
     try {
       Map<String, String> specialRemappings = getSpecialRemappings(commandLineArgs);
       String namespace = getNamespace(specialRemappings, env);
-      HashMap<RosName, RosName> remappings = parseRemappings(commandLineArgs);
+      HashMap<GraphName, GraphName> remappings = parseRemappings(commandLineArgs);
       NameResolver resolver = new NameResolver(namespace, remappings);
 
       NodeContext context = new NodeContext();
@@ -94,7 +97,16 @@ public class CommandLineLoader extends RosLoader {
       context.setRosRoot(getRosRoot(specialRemappings, env));
       context.setRosPackagePath(getRosPackagePath(specialRemappings, env));
       context.setRosMasterUri(getRosMasterUri(specialRemappings, env));
-      context.setAddressOverride(getAddressOverride(specialRemappings, env));
+      String addressOverride = getAddressOverride(specialRemappings, env);
+      if (addressOverride != null) {
+        context.setHostName(addressOverride);
+      } else {
+        try {
+          context.setHostName(InetAddress.getLocalHost().getCanonicalHostName());
+        } catch (UnknownHostException e) {
+          throw new RosInitException(e);
+        }
+      }
 
       return context;
     } catch (RosNameException e) {
@@ -157,10 +169,10 @@ public class CommandLineLoader extends RosLoader {
 
     String namespace = Namespace.GLOBAL_NS;
     if (specialRemappings.containsKey(CommandLine.ROS_NAMESPACE)) {
-      namespace = new RosName(specialRemappings.get(CommandLine.ROS_NAMESPACE)).toGlobal()
+      namespace = new GraphName(specialRemappings.get(CommandLine.ROS_NAMESPACE)).toGlobal()
           .toString();
     } else if (env.containsKey(EnvironmentVariables.ROS_NAMESPACE)) {
-      namespace = new RosName(env.get(EnvironmentVariables.ROS_NAMESPACE)).toGlobal().toString();
+      namespace = new GraphName(env.get(EnvironmentVariables.ROS_NAMESPACE)).toGlobal().toString();
     }
     return namespace;
   }
@@ -195,7 +207,9 @@ public class CommandLineLoader extends RosLoader {
     if (env.containsKey(EnvironmentVariables.ROS_ROOT)) {
       return env.get(EnvironmentVariables.ROS_ROOT);
     } else {
-      throw new RosInitException("ROS_ROOT is not set");
+      // For now, this is not required as we are not doing anything (e.g.
+      // ClassLoader) that requires it. In the future, this may become required.
+      return null;
     }
   }
 
@@ -208,16 +222,16 @@ public class CommandLineLoader extends RosLoader {
     }
   }
 
-  private HashMap<RosName, RosName> parseRemappings(String[] commandLineArgs)
+  private HashMap<GraphName, GraphName> parseRemappings(String[] commandLineArgs)
       throws RosNameException {
-    HashMap<RosName, RosName> remappings = new HashMap<RosName, RosName>();
+    HashMap<GraphName, GraphName> remappings = new HashMap<GraphName, GraphName>();
     for (String arg : commandLineArgs) {
       if (arg.contains(":=") && !arg.startsWith("__")) {
         String[] remap = arg.split(":=");
         if (remap.length > 2) {
           throw new IllegalArgumentException("invalid command-line args");
         }
-        remappings.put(new RosName(remap[0]), new RosName(remap[1]));
+        remappings.put(new GraphName(remap[0]), new GraphName(remap[1]));
       }
     }
     return remappings;
