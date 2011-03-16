@@ -17,27 +17,28 @@ package org.ros;
 
 import com.google.common.base.Preconditions;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.xmlrpc.XmlRpcException;
 import org.ros.exceptions.RosInitException;
 import org.ros.exceptions.RosNameException;
-import org.ros.internal.namespace.RosName;
+import org.ros.internal.namespace.GraphName;
 import org.ros.internal.node.RemoteException;
 import org.ros.internal.node.client.MasterClient;
+import org.ros.internal.node.client.RosoutLogger;
 import org.ros.internal.node.server.SlaveIdentifier;
 import org.ros.internal.node.server.SlaveServer;
 import org.ros.internal.topic.MessageDefinition;
 import org.ros.internal.topic.PubSubFactory;
 import org.ros.internal.topic.TopicDefinition;
-import org.ros.logging.RosLog;
 import org.ros.message.Message;
 import org.ros.message.Time;
-import org.ros.namespace.NameResolver;
 import org.ros.namespace.Namespace;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -52,8 +53,7 @@ public class Node implements Namespace {
    */
   private final NodeContext context;
   /** The node's namespace name. */
-  private final RosName nodeName;
-  private String hostName;
+  private final GraphName nodeName;
   /** Port on which the slave server will be initialized on. */
   private final int port;
   /** The master client, used for communicating with an existing master. */
@@ -64,13 +64,16 @@ public class Node implements Namespace {
   private PubSubFactory pubSubFactory;
 
   /**
-   * The log of this node. This log has the node's name inserted in each
-   * message, along with ROS standard logging conventions.
+   * Log for client. This will send messages to /rosout.
    */
-  private RosLog log;
+  private RosoutLogger log;
+  /**
+   * Log for internal messages only.
+   */
+  private Log internalLog = LogFactory.getLog(Node.class);
   private boolean initialized;
   private Executor executor;
-  private String masterUri;
+  private TimeProvider timeProvider;
 
   /**
    * @param name
@@ -81,11 +84,15 @@ public class Node implements Namespace {
     Preconditions.checkNotNull(context);
     Preconditions.checkNotNull(name);
     this.context = context;
-    nodeName = new RosName(this.context.getResolver().resolveName(name));
+    nodeName = new GraphName(this.context.getResolver().resolveName(name));
     port = 0; // default port
     masterClient = null;
     slaveServer = null;
-    log = new RosLog(nodeName.toString());
+
+    // TODO (kwc): implement simulated time.
+    timeProvider = new WallclockProvider();
+    // Log for /rosout.
+    log = new RosoutLogger(LogFactory.getLog(nodeName.toString()), timeProvider);
   }
 
   @Override
@@ -101,8 +108,14 @@ public class Node implements Namespace {
       Preconditions.checkNotNull(masterClient);
       Preconditions.checkNotNull(slaveServer);
       Publisher<MessageType> pub = new Publisher<MessageType>(resolveName(topic_name), clazz);
-      // TODO(damonkohler): Allow passing in an address to bind to?
-      pub.start(new InetSocketAddress(0));
+
+      if (context.getHostName().equals("localhost") || context.getHostName().startsWith("127.0.0.")) {
+        // If we are advertising as localhost, explicitly bind to loopback-only.
+        // NOTE: technically 127.0.0.0/8 is loopback, not 127.0.0.1/24.
+        pub.start(new InetSocketAddress(InetAddress.getByName("localhost"), context.getTcpRosPort()));
+      } else {
+        pub.start(new InetSocketAddress(context.getTcpRosPort()));
+      }
       slaveServer.addPublisher(pub.publisher);
       return pub;
     } catch (IOException e) {
@@ -163,12 +176,14 @@ public class Node implements Namespace {
   }
 
   /**
-   * @return The current time of the system, using rostime.
+   * Provide the current time. In ROS, time can be wallclock (actual) or
+   * simulated, so it is important to use currentTime() instead of normal Java
+   * routines for determining the current time.
+   * 
+   * @return Current ROS clock time.
    */
   public Time currentTime() {
-    // TODO: need to add in rostime (/Clock) implementation for simulated time
-    // in the event that wallclock is not being used
-    return Time.fromMillis(System.currentTimeMillis());
+    return timeProvider.currentTime();
   }
 
   @Override
@@ -177,52 +192,24 @@ public class Node implements Namespace {
   }
 
   /**
-   * This starts up a connection with the master and gets the juices flowing.
+   * This starts up a connection with the master.
    * 
    * @throws RosInitException
    */
   public void init() throws RosInitException {
     try {
-      init(Ros.getMasterUri().toString(), Ros.getHostName());
-    } catch (URISyntaxException e) {
-      throw new RosInitException(e);
-    }
-  }
+      masterClient = new MasterClient(context.getRosMasterUri());
 
-  /**
-   * @param masterUri
-   *          The uri of the rosmaster, typically "http://localhost:11311", or
-   *          "http://remotehost.com:11311"
-   * @param hostName
-   *          The host of this node.
-   * @throws RosInitException
-   */
-  public void init(String masterUri, String hostName) throws RosInitException {
-    try {
-      this.hostName = hostName;
-      this.masterUri = masterUri;
-
-      // Create handle to master.
-      try {
-        masterClient = new MasterClient(new URI(this.masterUri));
-      } catch (MalformedURLException e) {
-        // TODO(kwc) remove chance of URI exceptions using RosContext-based
-        // constructor instead
-        throw new RosInitException("invalid ROS master URI");
-      } catch (URISyntaxException e) {
-        throw new RosInitException("invalid ROS master URI");
-      }
       // Start up XML-RPC Slave server.
       SlaveIdentifier slaveIdentifier;
       try {
-        slaveServer = new SlaveServer(nodeName.toString(), masterClient, this.hostName, port);
+        slaveServer = new SlaveServer(nodeName.toString(), masterClient, context.getHostName(),
+            port);
         slaveServer.start();
-        log().debug(
-            "Successfully initiallized " + nodeName.toString() + " with:\n\tmaster @ "
-                + masterClient.getRemoteUri().toString() + "\n\tListening on port: "
-                + slaveServer.getUri().toString());
-
         slaveIdentifier = slaveServer.toSlaveIdentifier();
+        internalLog.debug("Successfully initialized " + nodeName.toString() + " with:\n\tmaster @ "
+            + masterClient.getRemoteUri().toString() + "\n\tListening on port: "
+            + slaveServer.getUri().toString());
       } catch (MalformedURLException e) {
         throw new RosInitException("invalid ROS slave URI");
       } catch (URISyntaxException e) {
@@ -234,31 +221,35 @@ public class Node implements Namespace {
       pubSubFactory = new PubSubFactory(slaveIdentifier, executor);
 
       initialized = true;
+
+      // initialized must be true to start creating publishers.
+      Publisher<org.ros.message.rosgraph.Log> rosoutPublisher = createPublisher("/rosout",
+          org.ros.message.rosgraph.Log.class);
+      log.setRosoutPublisher(rosoutPublisher);
+
     } catch (IOException e) {
       throw new RosInitException(e);
     } catch (XmlRpcException e) {
+      throw new RosInitException(e);
+    } catch (RosNameException e) {
       throw new RosInitException(e);
     }
   }
 
   /**
-   * @return This is this nodes logger, and may be used to pump messages to
-   *         rosout.
+   * @return Logger for this node, which will also perform logging to /rosout.
    */
-  public RosLog log() {
+  public Log getLog() {
     return log;
   }
 
   @Override
   public String resolveName(String name) throws RosNameException {
-    NameResolver resolver = context.getResolver();
-    String r = resolver.resolveName(getName(), name);
-    log.debug("Resolved name " + name + " as " + r);
-    return r;
+    return context.getResolver().resolveName(getName(), name);
   }
 
   public void shutdown() {
-    // todo unregister all publishers, subscribers, etc.
+    // TODO unregister all publishers, subscribers, etc.
     slaveServer.shutdown();
   }
 
