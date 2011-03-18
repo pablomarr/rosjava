@@ -27,8 +27,8 @@ import org.ros.internal.node.RemoteException;
 import org.ros.internal.node.client.RosoutLogger;
 import org.ros.internal.node.client.TimeProvider;
 import org.ros.internal.node.client.WallclockProvider;
-import org.ros.internal.topic.MessageDefinition;
-import org.ros.internal.topic.TopicDefinition;
+import org.ros.internal.node.topic.MessageDefinition;
+import org.ros.internal.node.topic.TopicDefinition;
 import org.ros.message.Message;
 import org.ros.message.Time;
 import org.ros.namespace.Namespace;
@@ -89,10 +89,10 @@ public class Node implements Namespace {
     try {
       String resolvedTopicName = resolveName(topicName);
       Message m = messageClass.newInstance();
-      TopicDefinition topicDefinition = new TopicDefinition(resolvedTopicName,
-          MessageDefinition.createFromMessage(m));
-      org.ros.internal.topic.Publisher<MessageType> publisherImpl = node.createPublisher(
-          topicDefinition, messageClass);
+      TopicDefinition topicDefinition =
+          new TopicDefinition(resolvedTopicName, MessageDefinition.createFromMessage(m));
+      org.ros.internal.node.topic.Publisher<MessageType> publisherImpl =
+          node.createPublisher(topicDefinition, messageClass);
       return new Publisher<MessageType>(resolveName(topicName), messageClass, publisherImpl);
     } catch (RosNameException e) {
       throw e;
@@ -116,18 +116,18 @@ public class Node implements Namespace {
     try {
       Message m = messageClass.newInstance();
       String resolvedTopicName = resolveName(topicName);
-      TopicDefinition topicDefinition = new TopicDefinition(resolvedTopicName,
-          MessageDefinition.createFromMessage(m));
-      org.ros.internal.topic.Subscriber<MessageType> subscriberImpl = node.createSubscriber(
-          topicDefinition, messageClass);
+      TopicDefinition topicDefinition =
+          new TopicDefinition(resolvedTopicName, MessageDefinition.createFromMessage(m));
+      org.ros.internal.node.topic.Subscriber<MessageType> subscriberImpl =
+          node.createSubscriber(topicDefinition, messageClass);
 
       // Add the callback to the impl.
       subscriberImpl.addMessageListener(callback);
       // Create the user-facing Subscriber handle. This is little more than a
       // lightweight wrapper around the internal implementation so that we can
       // track callback references.
-      Subscriber<MessageType> subscriber = new Subscriber<MessageType>(resolvedTopicName, callback,
-          messageClass, subscriberImpl);
+      Subscriber<MessageType> subscriber =
+          new Subscriber<MessageType>(resolvedTopicName, callback, messageClass, subscriberImpl);
       return subscriber;
 
     } catch (IOException e) {
@@ -169,27 +169,23 @@ public class Node implements Namespace {
       throw new RosInitException("already initialized");
     }
     try {
-      InetSocketAddress tcpRosServerBindAddress;
       if (context.getHostName().equals("localhost") || context.getHostName().startsWith("127.0.0.")) {
         // If we are advertising as localhost, explicitly bind to loopback-only.
         // NOTE: technically 127.0.0.0/8 is loopback, not 127.0.0.1/24.
-        tcpRosServerBindAddress = new InetSocketAddress(InetAddress.getByName("localhost"),
-            context.getTcpRosPort());
+        node =
+            org.ros.internal.node.Node.createPrivate(nodeName.toString(),
+                context.getRosMasterUri(), context.getXmlRpcPort(), context.getTcpRosPort());
       } else {
-        tcpRosServerBindAddress = new InetSocketAddress(context.getTcpRosPort());
+        node =
+            org.ros.internal.node.Node.createPublic(nodeName.toString(),
+                context.getRosMasterUri(), context.getXmlRpcPort(), context.getTcpRosPort());
       }
-
-      // Create factory and job queue for generating publisher/subscriber impls.
-      node = new org.ros.internal.node.Node(nodeName.toString(), context.getRosMasterUri(),
-          new InetSocketAddress(context.getHostName(), context.getXmlRpcPort()));
-      // Explicitly start TCPROS resources for now.
-      node.start(context.getHostName(), tcpRosServerBindAddress);
 
       initialized = true;
 
       // initialized must be true to start creating publishers.
-      Publisher<org.ros.message.rosgraph_msgs.Log> rosoutPublisher = createPublisher("/rosout",
-          org.ros.message.rosgraph_msgs.Log.class);
+      Publisher<org.ros.message.rosgraph_msgs.Log> rosoutPublisher =
+          createPublisher("/rosout", org.ros.message.rosgraph_msgs.Log.class);
       log.setRosoutPublisher(rosoutPublisher);
 
     } catch (IOException e) {
