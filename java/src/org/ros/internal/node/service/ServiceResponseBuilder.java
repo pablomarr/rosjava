@@ -14,41 +14,15 @@
  * the License.
  */
 
-package org.ros.internal.service;
+package org.ros.internal.node.service;
 
-import org.jboss.netty.buffer.ChannelBuffer;
+import org.ros.message.Message;
 
 /**
  * @author damonkohler@google.com (Damon Kohler)
  */
-class ServiceServerResponse {
-  
-  private ChannelBuffer message;
-  private int errorCode;
-  private int messageLength;
+public interface ServiceResponseBuilder<RequestMessageType extends Message> {
 
-  public void setErrorCode(int errorCode) {
-    this.errorCode = errorCode;
-  }
-
-  public int getErrorCode() {
-    return errorCode;
-  }
-
-  public void setMessage(ChannelBuffer buffer) {
-    message = buffer;
-  }
-
-  public ChannelBuffer getMessage() {
-    return message;
-  }
-
-  public void setMessageLength(int messageLength) {
-    this.messageLength = messageLength;
-  }
-
-  public int getMessageLength() {
-    return messageLength;
-  }
+  public Message build(RequestMessageType requestMessage);
 
 }

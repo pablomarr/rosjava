@@ -25,23 +25,23 @@ import org.ros.internal.namespace.GraphName;
 import org.ros.internal.node.RemoteException;
 import org.ros.internal.node.client.MasterClient;
 import org.ros.internal.node.response.Response;
+import org.ros.internal.node.service.ServiceServer;
+import org.ros.internal.node.topic.Publisher;
+import org.ros.internal.node.topic.PublisherIdentifier;
+import org.ros.internal.node.topic.Subscriber;
+import org.ros.internal.node.topic.TopicDefinition;
+import org.ros.internal.node.topic.TopicManager;
 import org.ros.internal.node.xmlrpc.SlaveImpl;
-import org.ros.internal.service.ServiceServer;
-import org.ros.internal.topic.Publisher;
-import org.ros.internal.topic.PublisherIdentifier;
-import org.ros.internal.topic.Subscriber;
-import org.ros.internal.topic.TopicDefinition;
-import org.ros.internal.topic.TopicManager;
 import org.ros.internal.transport.ProtocolDescription;
 import org.ros.internal.transport.ProtocolNames;
 import org.ros.internal.transport.tcp.TcpRosProtocolDescription;
+import org.ros.internal.transport.tcp.TcpRosServer;
 import org.ros.message.Message;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
-import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collection;
@@ -51,10 +51,12 @@ import java.util.List;
  * @author damonkohler@google.com (Damon Kohler)
  */
 public class SlaveServer extends NodeServer {
-  private final String name;
-  private final MasterClient master;
+
+  private final String nodeName;
+  private final MasterClient masterClient;
   private final TopicManager topicManager;
-  private InetSocketAddress tcpRosServerAddress;
+  private final ServiceManager serviceManager;
+  private final TcpRosServer tcpRosServer;
 
   private static List<PublisherIdentifier> buildPublisherIdentifierList(
       Collection<URI> publisherUriList, TopicDefinition topicDefinition) {
@@ -66,37 +68,31 @@ public class SlaveServer extends NodeServer {
     return publishers;
   }
 
-  public SlaveServer(String nodeName, MasterClient master, SocketAddress xmlRpcServerAddress) {
+  public SlaveServer(String nodeName, InetSocketAddress xmlRpcServerAddress, MasterClient master,
+      TopicManager topicManager, ServiceManager serviceManager, TcpRosServer tcpRosServer) {
     super(xmlRpcServerAddress);
     Preconditions.checkNotNull(nodeName);
     Preconditions.checkArgument(nodeName.startsWith("/"));
-    this.name = nodeName;
-    this.master = master;
-    this.topicManager = new TopicManager();
-    this.tcpRosServerAddress = null;
+    this.nodeName = nodeName;
+    this.masterClient = master;
+    this.topicManager = topicManager;
+    this.serviceManager = serviceManager;
+    this.tcpRosServer = tcpRosServer;
   }
 
   /**
    * Start the XML-RPC server. This start() routine requires that the
-   * {@link TcpServer} is initialized first so that the slave server returns
+   * {@link TcpRosServer} is initialized first so that the slave server returns
    * correct information when topics are requested.
    * 
-   * @param tcpRosServerAddress
-   *          Address of TCPROS server.
    * @throws XmlRpcException
    * @throws IOException
    * @throws URISyntaxException
    */
-  // TODO: passing in the tcpRosServerAddress is temporary. It was too easy to
-  // create a SlaveServer without setting this crucial bit of information.
-  public void start(InetSocketAddress tcpRosServerAddress) throws XmlRpcException, IOException,
+  public void start() throws XmlRpcException, IOException,
       URISyntaxException {
     super.start(org.ros.internal.node.xmlrpc.SlaveImpl.class, new SlaveImpl(this));
-    // kwc: in the future, tcpRosServerAddress would likely be part of a
-    // protocol handler implementation instead and opaque to the slave server,
-    // but for now I am keeping it an explicit start parameter so this is always
-    // set correctly.
-    this.tcpRosServerAddress = tcpRosServerAddress;
+    tcpRosServer.start();
   }
 
   @Override
@@ -107,7 +103,7 @@ public class SlaveServer extends NodeServer {
   public void addPublisher(Publisher<?> publisher) throws MalformedURLException,
       URISyntaxException, RemoteException {
     topicManager.putPublisher(publisher.getTopicName(), publisher);
-    master.registerPublisher(publisher.toPublisherIdentifier(toSlaveIdentifier()));
+    masterClient.registerPublisher(publisher.toPublisherIdentifier(toSlaveIdentifier()));
   }
 
   /**
@@ -127,9 +123,9 @@ public class SlaveServer extends NodeServer {
   public List<PublisherIdentifier> addSubscriber(Subscriber<?> subscriber) throws IOException,
       URISyntaxException, RemoteException {
     topicManager.putSubscriber(subscriber.getTopicName(), subscriber);
-    Response<List<URI>> response = master.registerSubscriber(toSlaveIdentifier(), subscriber);
-    List<PublisherIdentifier> publishers = buildPublisherIdentifierList(response.getResult(),
-        subscriber.getTopicDefinition());
+    Response<List<URI>> response = masterClient.registerSubscriber(toSlaveIdentifier(), subscriber);
+    List<PublisherIdentifier> publishers =
+        buildPublisherIdentifierList(response.getResult(), subscriber.getTopicDefinition());
     subscriber.updatePublishers(publishers);
     return publishers;
   }
@@ -142,7 +138,8 @@ public class SlaveServer extends NodeServer {
    */
   public void addService(ServiceServer<? extends Message> server) throws URISyntaxException,
       MalformedURLException, RemoteException {
-    master.registerService(toSlaveIdentifier(), server);
+    serviceManager.putService(server.getName(), server);
+    masterClient.registerService(toSlaveIdentifier(), server);
   }
 
   public List<Object> getBusStats(String callerId) {
@@ -158,18 +155,19 @@ public class SlaveServer extends NodeServer {
   }
 
   public URI getMasterUri(String callerId) {
-    return master.getRemoteUri();
+    return masterClient.getRemoteUri();
   }
 
   public void shutdown(String callerId, String message) {
     super.shutdown();
+    tcpRosServer.shutdown();
   }
 
   /**
    * @param callerId
    * @return PID of node process
-   * @throws UnsupportedOperationException
-   *           If PID cannot be retrieved on this platform.
+   * @throws UnsupportedOperationException If PID cannot be retrieved on this
+   *         platform.
    */
   public Integer getPid(String callerId) {
     // kwc: java has no standard way of getting pid, apparently. This is the
@@ -203,13 +201,12 @@ public class SlaveServer extends NodeServer {
     if (topicManager.hasSubscriber(topicName)) {
       Subscriber<? extends Message> subscriber = topicManager.getSubscriber(topicName);
       TopicDefinition topicDefinition = subscriber.getTopicDefinition();
-      List<PublisherIdentifier> pubIdentifiers = buildPublisherIdentifierList(publisherUris,
-          topicDefinition);
+      List<PublisherIdentifier> pubIdentifiers =
+          buildPublisherIdentifierList(publisherUris, topicDefinition);
       subscriber.updatePublishers(pubIdentifiers);
     }
   }
 
-  // TODO(damonkohler): Support multiple publishers for a particular topic.
   public ProtocolDescription requestTopic(String topicName, Collection<String> protocols)
       throws ServerException {
     try {
@@ -221,10 +218,9 @@ public class SlaveServer extends NodeServer {
     if (!topicManager.hasPublisher(topicName)) {
       throw new ServerException("No publishers for topic: " + topicName);
     }
-    Preconditions.checkState(tcpRosServerAddress != null);
     for (String protocol : protocols) {
-      if (ProtocolNames.SUPPORTED.contains(protocol)) {
-        return new TcpRosProtocolDescription(tcpRosServerAddress);
+      if (protocol.equals(ProtocolNames.TCPROS)) {
+        return new TcpRosProtocolDescription(tcpRosServer.getAddress());
       }
     }
     throw new ServerException("No supported protocols specified.");
@@ -236,7 +232,7 @@ public class SlaveServer extends NodeServer {
    * @throws URISyntaxException
    */
   public SlaveIdentifier toSlaveIdentifier() throws URISyntaxException, MalformedURLException {
-    return new SlaveIdentifier(name, getUri());
+    return new SlaveIdentifier(nodeName, getUri());
   }
 
 }

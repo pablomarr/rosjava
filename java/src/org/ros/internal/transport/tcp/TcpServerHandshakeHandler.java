@@ -29,10 +29,10 @@ import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelHandler;
 import org.ros.internal.node.server.ServiceManager;
-import org.ros.internal.service.ServiceResponseEncoder;
-import org.ros.internal.service.ServiceServer;
-import org.ros.internal.topic.Publisher;
-import org.ros.internal.topic.TopicManager;
+import org.ros.internal.node.service.ServiceResponseEncoder;
+import org.ros.internal.node.service.ServiceServer;
+import org.ros.internal.node.topic.Publisher;
+import org.ros.internal.node.topic.TopicManager;
 import org.ros.internal.transport.ConnectionHeader;
 import org.ros.internal.transport.ConnectionHeaderFields;
 import org.ros.message.Message;
@@ -75,9 +75,9 @@ public class TcpServerHandshakeHandler extends SimpleChannelHandler {
       } else {
         e.getChannel().write(outgoingBuffer);
         ChannelPipeline pipeline = e.getChannel().getPipeline();
-        pipeline.replace(TcpServerPipelineFactory.LENGTH_FIELD_PREPENDER, "ResponseEncoder",
+        pipeline.replace(TcpServerPipelineFactory.LENGTH_FIELD_PREPENDER, "ServiceResponseEncoder",
             new ServiceResponseEncoder());
-        pipeline.replace(this, "RequestHandler", serviceServer.createRequestHandler());
+        pipeline.replace(this, "ServiceRequestHandler", serviceServer.createRequestHandler());
       }
     } else {
       String topicName = incomingHeader.get(ConnectionHeaderFields.TOPIC);

@@ -14,38 +14,41 @@
  * the License.
  */
 
-package org.ros.internal.service;
+package org.ros.internal.node.service;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 
 import org.ros.internal.transport.ConnectionHeaderFields;
 
 
+import java.net.URI;
 import java.util.Map;
 
 /**
  * @author damonkohler@google.com (Damon Kohler)
  */
-public class ServiceDefinition {
+public class ServiceIdentifier {
 
-  private final String type;
-  private final String md5Checksum;
-  
-  public ServiceDefinition(String type, String md5Checksum) {
-    this.type = type;
-    this.md5Checksum = md5Checksum;
+  private final URI uri;
+  private final ServiceDefinition serviceDefinition;
+
+  public ServiceIdentifier(URI uri, ServiceDefinition serviceDefinition) {
+    this.uri = uri;
+    this.serviceDefinition = serviceDefinition;
   }
-  
+
   public Map<String, String> toHeader() {
-    Preconditions.checkNotNull(md5Checksum);
-    return new ImmutableMap.Builder<String, String>()
-        .put(ConnectionHeaderFields.TYPE, type)
-        .put(ConnectionHeaderFields.MD5_CHECKSUM, md5Checksum)
-        .build();
+    return ImmutableMap.<String, String>builder()
+        .put(ConnectionHeaderFields.SERVICE, serviceDefinition.getName())
+        .putAll(serviceDefinition.toHeader()).build();
   }
 
-  public String getType() {
-    return type;
+  public String getName() {
+    return serviceDefinition.getName();
   }
+
+  public URI getUri() {
+    return uri;
+  }
+
 }

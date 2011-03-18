@@ -22,19 +22,22 @@ import org.apache.xmlrpc.XmlRpcException;
 import org.ros.internal.node.client.MasterClient;
 import org.ros.internal.node.server.MasterServer;
 import org.ros.internal.node.server.ServiceManager;
-import org.ros.internal.node.server.SlaveIdentifier;
 import org.ros.internal.node.server.SlaveServer;
-import org.ros.internal.topic.Publisher;
-import org.ros.internal.topic.Subscriber;
-import org.ros.internal.topic.TopicDefinition;
-import org.ros.internal.topic.TopicManager;
-import org.ros.internal.transport.tcp.TcpServer;
+import org.ros.internal.node.service.ServiceClient;
+import org.ros.internal.node.service.ServiceDefinition;
+import org.ros.internal.node.service.ServiceIdentifier;
+import org.ros.internal.node.service.ServiceResponseBuilder;
+import org.ros.internal.node.service.ServiceServer;
+import org.ros.internal.node.topic.Publisher;
+import org.ros.internal.node.topic.Subscriber;
+import org.ros.internal.node.topic.TopicDefinition;
+import org.ros.internal.node.topic.TopicManager;
+import org.ros.internal.transport.tcp.TcpRosServer;
 import org.ros.message.Message;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
-import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.concurrent.Executor;
@@ -50,23 +53,46 @@ import java.util.concurrent.Executors;
  */
 public class Node {
 
-  private final MasterClient master;
-  private final SlaveServer slave;
+  private static final String LOOPBACK = "127.0.0.1";
+
   private final Executor executor;
+  private final String nodeName;
+  private final MasterClient masterClient;
+  private final SlaveServer slaveServer;
   private final TopicManager topicManager;
   private final ServiceManager serviceManager;
-  private final TcpServer tcpServer;
-  private boolean started;
+  private final TcpRosServer tcpRosServer;
 
-  public Node(String nodeName, URI masterUri, SocketAddress xmlRpcServerAddress)
-      throws MalformedURLException {
-    master = new MasterClient(masterUri);
-    slave = new SlaveServer(nodeName, master, xmlRpcServerAddress);
+
+  public static Node createPublic(String nodeName, URI masterUri, int xmlRpcBindPort,
+      int tcpRosBindPort) throws XmlRpcException, IOException, URISyntaxException {
+    Node node =
+        new Node(nodeName, masterUri, new InetSocketAddress(xmlRpcBindPort), new InetSocketAddress(
+            tcpRosBindPort));
+    node.start();
+    return node;
+  }
+
+  public static Node createPrivate(String nodeName, URI masterUri, int xmlRpcBindPort,
+      int tcpRosBindPort) throws XmlRpcException, IOException, URISyntaxException {
+    Node node =
+        new Node(nodeName, masterUri, new InetSocketAddress(LOOPBACK, xmlRpcBindPort),
+            new InetSocketAddress(LOOPBACK, tcpRosBindPort));
+    node.start();
+    return node;
+  }
+
+  Node(String nodeName, URI masterUri, InetSocketAddress xmlRpcBindAddress,
+      InetSocketAddress tcpRosBindAddress) throws MalformedURLException {
+    this.nodeName = nodeName;
     executor = Executors.newCachedThreadPool();
+    masterClient = new MasterClient(masterUri);
     topicManager = new TopicManager();
     serviceManager = new ServiceManager();
-    tcpServer = new TcpServer(topicManager, serviceManager);
-    started = false;
+    tcpRosServer = new TcpRosServer(tcpRosBindAddress, topicManager, serviceManager);
+    slaveServer =
+        new SlaveServer(nodeName, xmlRpcBindAddress, masterClient, topicManager, serviceManager,
+            tcpRosServer);
   }
 
   /**
@@ -75,10 +101,8 @@ public class Node {
    * generated, it is registered with the {@link MasterServer}.
    * 
    * @param <MessageType>
-   * @param topicDefinition
-   *          {@link TopicDefinition} that is subscribed to
-   * @param messageClass
-   *          {@link Message} class for topic
+   * @param topicDefinition {@link TopicDefinition} that is subscribed to
+   * @param messageClass {@link Message} class for topic
    * @return a {@link Subscriber} instance
    * @throws RemoteException
    * @throws URISyntaxException
@@ -88,27 +112,24 @@ public class Node {
   public <MessageType extends Message> Subscriber<MessageType> createSubscriber(
       TopicDefinition topicDefinition, Class<MessageType> messageClass) throws IOException,
       URISyntaxException, RemoteException {
-    Preconditions.checkState(started, "Node has not been started yet");
     String topicName = topicDefinition.getName();
     Subscriber<MessageType> subscriber;
     boolean createdNewSubscriber = false;
 
     synchronized (topicManager) {
       if (topicManager.hasSubscriber(topicName)) {
-        // Return existing internal subscriber.
         subscriber = (Subscriber<MessageType>) topicManager.getSubscriber(topicName);
         Preconditions.checkState(subscriber.checkMessageClass(messageClass));
       } else {
-        // Create new underlying implementation for topic subscription.
-        subscriber = Subscriber.create(slave.toSlaveIdentifier(), topicDefinition, messageClass,
-            executor);
-        topicManager.putSubscriber(topicName, subscriber);
+        subscriber =
+            Subscriber.create(slaveServer.toSlaveIdentifier(), topicDefinition, messageClass,
+                executor);
         createdNewSubscriber = true;
       }
     }
 
     if (createdNewSubscriber) {
-      slave.addSubscriber(subscriber);
+      slaveServer.addSubscriber(subscriber);
     }
     return subscriber;
   }
@@ -117,7 +138,6 @@ public class Node {
   public <MessageType extends Message> Publisher<MessageType> createPublisher(
       TopicDefinition topicDefinition, Class<MessageType> messageClass) throws IOException,
       URISyntaxException, RemoteException {
-    Preconditions.checkState(started, "Node has not been started yet");
     String topicName = topicDefinition.getName();
     Publisher<MessageType> publisher;
     boolean createdNewPublisher = false;
@@ -128,51 +148,67 @@ public class Node {
         Preconditions.checkState(publisher.checkMessageClass(messageClass));
       } else {
         publisher = new Publisher<MessageType>(topicDefinition, messageClass);
-        topicManager.putPublisher(topicName, publisher);
         createdNewPublisher = true;
       }
     }
 
     if (createdNewPublisher) {
-      slave.addPublisher(publisher);
+      slaveServer.addPublisher(publisher);
     }
     return publisher;
   }
 
+  @SuppressWarnings("unchecked")
+  public <RequestMessageType extends Message> ServiceServer<RequestMessageType> createServiceServer(
+      ServiceDefinition serviceDefinition, Class<RequestMessageType> requestMessageClass,
+      ServiceResponseBuilder<RequestMessageType> responseBuilder) throws MalformedURLException,
+      URISyntaxException, RemoteException {
+    ServiceServer<RequestMessageType> serviceServer;
+    String name = serviceDefinition.getName();
+    boolean createdNewService = false;
+
+    synchronized (serviceManager) {
+      if (serviceManager.hasService(name)) {
+        serviceServer = (ServiceServer<RequestMessageType>) serviceManager.getService(name);
+        Preconditions.checkState(serviceServer.checkMessageClass(requestMessageClass));
+      } else {
+        serviceServer =
+            new ServiceServer<RequestMessageType>(serviceDefinition, requestMessageClass,
+                responseBuilder);
+        serviceServer.setAddress(tcpRosServer.getAddress());
+        createdNewService = true;
+      }
+    }
+
+    if (createdNewService) {
+      slaveServer.addService(serviceServer);
+    }
+    return serviceServer;
+  }
+
+  // TODO(damonkohler): Cache clients.
+  public <ResponseMessageType extends Message> ServiceClient<ResponseMessageType> createServiceClient(
+      ServiceIdentifier serviceIdentifier, Class<ResponseMessageType> responseMessageClass) {
+    ServiceClient<ResponseMessageType> serviceClient =
+        ServiceClient.create(responseMessageClass, nodeName, serviceIdentifier);
+    URI uri = serviceIdentifier.getUri();
+    serviceClient.connect(new InetSocketAddress(uri.getHost(), uri.getPort()));
+    return serviceClient;
+  }
+
   /**
-   * Start I/O resources.
+   * Start the node.
    * 
-   * @param publicHostName
-   *          Hostname/address to use to report to public resources.
-   * @param tcpRosServerBindAddress
-   *          Address to bind TCPROS server to.
    * @throws XmlRpcException
    * @throws IOException
    * @throws URISyntaxException
    */
-  public void start(String publicHostName, InetSocketAddress tcpRosServerBindAddress)
-      throws XmlRpcException, IOException, URISyntaxException {
-    tcpServer.start(tcpRosServerBindAddress);
-    // compute the public-facing address for this server.
-    InetSocketAddress publicTcpRosServerAddress = new InetSocketAddress(publicHostName, tcpServer
-        .getAddress().getPort());
-    slave.start(publicTcpRosServerAddress);
-    started = true;
+  public void start() throws XmlRpcException, IOException, URISyntaxException {
+    slaveServer.start();
   }
 
   public void stop() {
-    tcpServer.shutdown();
-    slave.shutdown();
-    // TODO(damonkohler): make sure shutdown stops all threads, I/O, etc...
+    slaveServer.shutdown();
   }
 
-  // TODO(damonkohler): Possibly add some normalization here like in
-  // ProtocolDescription?
-  public SocketAddress getAddress() {
-    return tcpServer.getAddress();
-  }
-
-  public SlaveIdentifier getSlaveIdentifier() throws MalformedURLException, URISyntaxException {
-    return slave.toSlaveIdentifier();
-  }
 }

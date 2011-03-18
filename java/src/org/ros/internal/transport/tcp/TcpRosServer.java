@@ -16,7 +16,6 @@
 
 package org.ros.internal.transport.tcp;
 
-
 import com.google.common.base.Preconditions;
 
 import org.apache.commons.logging.Log;
@@ -30,28 +29,30 @@ import org.jboss.netty.channel.group.ChannelGroupFuture;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 import org.ros.internal.node.server.ServiceManager;
-import org.ros.internal.topic.TopicManager;
+import org.ros.internal.node.topic.TopicManager;
 
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.nio.ByteOrder;
 import java.util.concurrent.Executors;
 
 /**
  * @author damonkohler@google.com (Damon Kohler)
  */
-public class TcpServer {
+public class TcpRosServer {
 
   private static final boolean DEBUG = false;
-  private static final Log log = LogFactory.getLog(TcpServer.class);
+  private static final Log log = LogFactory.getLog(TcpRosServer.class);
 
+  private final InetSocketAddress bindAddress;
   private final ChannelGroup channelGroup;
   private final ChannelFactory channelFactory;
   private final ServerBootstrap bootstrap;
 
   private Channel channel;
 
-  public TcpServer(TopicManager topicManager, ServiceManager serviceManager) {
+  public TcpRosServer(InetSocketAddress bindAddress, TopicManager topicManager,
+      ServiceManager serviceManager) {
+    this.bindAddress = bindAddress;
     channelGroup = new DefaultChannelGroup();
     channelFactory =
         new NioServerSocketChannelFactory(Executors.newCachedThreadPool(),
@@ -64,16 +65,16 @@ public class TcpServer {
     bootstrap.setPipelineFactory(pipelineFactory);
   }
 
-  public void start(SocketAddress address) {
-    channel = bootstrap.bind(address);
+  public void start() {
+    channel = bootstrap.bind(bindAddress);
     if (DEBUG) {
-      log.info("TCP server bound to: " + getAddress());
+      log.info("Bound to: " + getAddress());
     }
   }
 
   public void shutdown() {
     if (DEBUG) {
-      log.info("TCP server shutting down." + getAddress());
+      log.info("Shutting down: " + getAddress());
     }
     ChannelGroupFuture future = channelGroup.close();
     future.awaitUninterruptibly();
