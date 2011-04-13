@@ -43,6 +43,8 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Arrays;
+import java.util.Iterator;
 
 public class MasterChooserActivity extends Activity {
 
@@ -180,7 +182,15 @@ public class MasterChooserActivity extends Activity {
   private void addMaster(String master_uri) {
     RobotDescription new_robot = new RobotDescription();
     new_robot.masterUri = master_uri;
-    robots.add(new_robot);
+    Iterator<RobotDescription> iter = robots.iterator();
+    while( iter.hasNext() ) {
+      RobotDescription robot = iter.next();
+      if( robot.masterUri.equals( master_uri )) {
+        Toast.makeText(this, "That robot is already listed.", Toast.LENGTH_SHORT).show();
+        return;
+      }
+    }
+    robots.add( new_robot );
     onRobotsChanged();
   }
 
