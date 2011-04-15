@@ -139,13 +139,16 @@ public class TurtlebotDashboard extends LinearLayout {
 
     diagnosticSubscriber = node.createSubscriber("diagnostics_agg", new MessageListener<DiagnosticArray>() {
         @Override
-        public void onNewMessage( final DiagnosticArray msg ) {
+        public void onSuccess( final DiagnosticArray msg ) {
           TurtlebotDashboard.this.post( new Runnable() {
               @Override
               public void run() {
                 TurtlebotDashboard.this.handleDiagnosticArray( msg );
               }
             });
+        }
+        @Override
+        public void onFailure(Exception e) { 
         }
       }, DiagnosticArray.class);
   }

@@ -31,19 +31,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.ros.app_manager;
+package ros.android.activity;
 
-import org.ros.message.Message;
+public class AppManagerNotAvailableException extends Exception {
 
-import org.ros.MessageListener;
+  private static final long serialVersionUID = 1L;
 
-/**
- * @author kwc@willowgarage.com (Ken Conley)
- * 
- * @param <T>
- */
-public interface AppManagerCallback<T extends Message> extends MessageListener<T> {
-
-  public void callFailed(AppManagerException e);
-  
 }
