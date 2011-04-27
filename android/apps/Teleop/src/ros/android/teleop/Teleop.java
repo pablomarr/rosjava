@@ -24,6 +24,7 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Toast;
@@ -40,20 +41,28 @@ import org.ros.namespace.Namespace;
 import org.ros.service.app_manager.StartApp;
 
 import ros.android.activity.RosAppActivity;
+import ros.android.views.MapView;
 import ros.android.views.SensorImageView;
+import ros.android.views.TurtlebotDashboard;
 
 /**
  * @author kwc@willowgarage.com (Ken Conley)
  */
 public class Teleop extends RosAppActivity implements OnTouchListener {
   private Publisher<Twist> twistPub;
-  private SensorImageView imageView;
+  private SensorImageView cameraView;
+  private MapView mapView;
   private Thread pubThread;
   private boolean deadman;
   private Twist touchCmdMessage;
   private float motionY;
   private float motionX;
   private Subscriber<AppStatus> statusSub;
+  private TurtlebotDashboard dashboard;
+  private ViewGroup mainLayout;
+  private ViewGroup sideLayout;
+  private enum ViewMode { CAMERA, MAP };
+  private ViewMode viewMode;
 
   /** Called when the activity is first created. */
   @Override
@@ -64,12 +73,73 @@ public class Teleop extends RosAppActivity implements OnTouchListener {
         WindowManager.LayoutParams.FLAG_FULLSCREEN);
     setContentView(R.layout.main);
 
-    View mainView = findViewById(R.id.image);
-    mainView.setOnTouchListener(this);
+    View joyView = findViewById(R.id.joystick);
+    joyView.setOnTouchListener(this);
 
-    imageView = (SensorImageView) findViewById(R.id.image);
-    // imageView.setOnTouchListener(this);
+    cameraView = (SensorImageView) findViewById(R.id.image);
+    // cameraView.setOnTouchListener(this);
     touchCmdMessage = new Twist();
+
+    dashboard = (TurtlebotDashboard) findViewById( R.id.dashboard );
+    mapView = (MapView) findViewById( R.id.map_view );
+
+    mainLayout = (ViewGroup) findViewById(R.id.main_layout);
+    sideLayout = (ViewGroup) findViewById(R.id.side_layout);
+
+    viewMode = ViewMode.CAMERA;
+
+    mapView.setOnClickListener(new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+          Teleop.this.swapViews();
+        }
+      });
+    cameraView.setOnClickListener(new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+          Teleop.this.swapViews();
+        }
+      });
+    mapView.setClickable(true);
+    cameraView.setClickable(false);
+  }
+
+  /**
+   * Swap the camera and map views.
+   */
+  private void swapViews() {
+    // Figure out where the views were...
+    ViewGroup mapViewParent;
+    ViewGroup cameraViewParent;
+    Log.i("Teleop", "viewMode = " + viewMode);
+    if( viewMode == ViewMode.CAMERA ) {
+      Log.i("Teleop", "camera mode");
+      mapViewParent = sideLayout;
+      cameraViewParent = mainLayout;
+    } else {
+      Log.i("Teleop", "map mode");
+      mapViewParent = mainLayout;
+      cameraViewParent = sideLayout;
+    }
+    int mapViewIndex = mapViewParent.indexOfChild(mapView);
+    int cameraViewIndex = cameraViewParent.indexOfChild(cameraView);
+
+    // Remove the views from their old locations...
+    mapViewParent.removeView(mapView);
+    cameraViewParent.removeView(cameraView);
+    
+    // Add them to their new location...
+    mapViewParent.addView(cameraView, mapViewIndex);
+    cameraViewParent.addView(mapView, cameraViewIndex);
+
+    // Remeber that we are in the other mode now.
+    if( viewMode == ViewMode.CAMERA ) {
+      viewMode = ViewMode.MAP;
+    } else {
+      viewMode = ViewMode.CAMERA;
+    }
+    mapView.setClickable(viewMode != ViewMode.MAP);
+    cameraView.setClickable(viewMode != ViewMode.CAMERA);
   }
 
   @Override
@@ -79,9 +149,9 @@ public class Teleop extends RosAppActivity implements OnTouchListener {
       twistPub.shutdown();
       twistPub = null;
     }
-    if (imageView != null) {
-      imageView.stop();
-      imageView = null;
+    if (cameraView != null) {
+      cameraView.stop();
+      cameraView = null;
     }
     if (statusSub != null) {
       statusSub.cancel();
@@ -91,6 +161,8 @@ public class Teleop extends RosAppActivity implements OnTouchListener {
       pubThread.interrupt();
       pubThread = null;
     }
+    dashboard.setNode(null);
+    mapView.setNode(null);
     super.onNodeDestroy(node);
   }
 
@@ -118,14 +190,14 @@ public class Teleop extends RosAppActivity implements OnTouchListener {
       Log.i("Teleop", "getNode()");
       Node node = getNode();
       Namespace appNamespace = getAppNamespace(node);
-      imageView = (SensorImageView) findViewById(R.id.image);
-      Log.i("Teleop", "init imageView");
-      imageView.start(node, appNamespace.resolveName("camera/rgb/image_color/compressed"));
-      imageView.post(new Runnable() {
+      cameraView = (SensorImageView) findViewById(R.id.image);
+      Log.i("Teleop", "init cameraView");
+      cameraView.start(node, appNamespace.resolveName("camera/rgb/image_color/compressed"));
+      cameraView.post(new Runnable() {
 
         @Override
         public void run() {
-          imageView.setSelected(true);
+          cameraView.setSelected(true);
         }
       });
       Log.i("Teleop", "init twistPub");
@@ -146,6 +218,8 @@ public class Teleop extends RosAppActivity implements OnTouchListener {
   protected void onNodeCreate(Node node) {
     Log.i("Teleop", "startAppFuture");
     super.onNodeCreate(node);
+    dashboard.setNode(node);
+    mapView.setNode(node);
     startApp();
   }
 
@@ -191,12 +265,12 @@ public class Teleop extends RosAppActivity implements OnTouchListener {
       motionX = (motionEvent.getX() - (arg0.getWidth() / 2)) / (arg0.getWidth());
       motionY = (motionEvent.getY() - (arg0.getHeight() / 2)) / (arg0.getHeight());
 
-      touchCmdMessage.linear.x = -motionY;
+      touchCmdMessage.linear.x = -2 * motionY;
       touchCmdMessage.linear.y = 0;
       touchCmdMessage.linear.z = 0;
       touchCmdMessage.angular.x = 0;
       touchCmdMessage.angular.y = 0;
-      touchCmdMessage.angular.z = -2 * motionX;
+      touchCmdMessage.angular.z = -5 * motionX;
 
     } else {
       deadman = false;
