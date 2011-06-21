@@ -41,7 +41,6 @@ import org.ros.internal.time.WallclockProvider;
 import org.ros.message.Message;
 import org.ros.message.MessageDeserializer;
 import org.ros.message.MessageSerializer;
-import org.ros.message.Service;
 import org.ros.message.Time;
 import org.ros.namespace.NameResolver;
 import org.ros.namespace.NodeNameResolver;
@@ -152,7 +151,7 @@ public class DefaultNode implements Node {
               message.getDataType(), message.getMessageDefinition(), message.getMD5Sum()));
       org.ros.internal.node.topic.Publisher<MessageType> publisherImpl =
           node.createPublisher(topicDefinition, messageSerializerFactory.<MessageType>create());
-      return new Publisher<MessageType>(resolveName(topicName), messageClass, publisherImpl);
+      return new Publisher<MessageType>(resolveName(topicName), publisherImpl);
     } catch (Exception e) {
       throw new RosInitException(e);
     }
@@ -188,51 +187,32 @@ public class DefaultNode implements Node {
           TopicDefinition.create(new GraphName(resolvedTopicName), MessageDefinition.create(
               message.getDataType(), message.getMessageDefinition(), message.getMD5Sum()));
       org.ros.internal.node.topic.Subscriber<MessageType> subscriber =
-          node.createSubscriber(topicDefinition, messageClass,
-              new MessageDeserializer<MessageType>(messageClass));
+          node.createSubscriber(topicDefinition, new MessageDeserializer<MessageType>(messageClass));
       subscriber.addMessageListener(callback);
-      return new Subscriber<MessageType>(resolvedTopicName, callback, messageClass, subscriber);
+      return new Subscriber<MessageType>(resolvedTopicName, callback, subscriber);
     } catch (Exception e) {
       throw new RosInitException(e);
     }
   }
 
-  /**
-   * Create a {@link ParameterClient} to query and set parameters on the ROS
-   * parameter server.
-   * 
-   * @return {@link ParameterClient} with {@link NameResolver} in this
-   *         namespace.
-   */
   public <RequestType, ResponseType> ServiceServer createServiceServer(
       ServiceDefinition serviceDefinition,
       ServiceResponseBuilder<RequestType, ResponseType> responseBuilder) throws Exception {
     return node.createServiceServer(serviceDefinition, responseBuilder);
   }
 
-  public <ResponseMessageType extends Message> ServiceClient<ResponseMessageType>
-      createServiceClient(ServiceIdentifier serviceIdentifier,
-          Class<ResponseMessageType> responseMessageClass) {
-    return node.createServiceClient(serviceIdentifier,
-        new MessageDeserializer<ResponseMessageType>(responseMessageClass));
+  @Override
+  public <ResponseType> ServiceClient<ResponseType> createServiceClient(
+      ServiceDefinition serviceDefinition, Class<ResponseType> responseMessageClass) {
+    return node.createServiceClient(serviceDefinition, new MessageDeserializer<ResponseType>(
+        responseMessageClass));
   }
 
-  /**
-   * Returns a {@link ServiceIdentifier} for communicating with the current
-   * provider of a {@link Service}. Return value is null if no provider can be
-   * determined.
-   * 
-   * @param serviceName
-   * @param serviceType
-   * @return {@link ServiceIdentifier} of current {@Service} provider
-   *         or null if none present.
-   */
-  public ServiceIdentifier lookupService(String serviceName, Service<?, ?> serviceType) {
-    // TODO(kwc) the need for the serviceType is an artifact of the
-    // ServiceIdentifier type. I would like to eliminate this need.
+  @Override
+  public ServiceIdentifier lookupService(String serviceName) {
     GraphName resolvedServiceName = new GraphName(resolveName(serviceName));
     try {
-      return node.lookupService(resolvedServiceName, serviceType);
+      return node.lookupService(resolvedServiceName);
     } catch (RemoteException e) {
       return null;
     } catch (XmlRpcTimeoutException e) {
@@ -311,6 +291,13 @@ public class DefaultNode implements Node {
     return resolver;
   }
 
+  /**
+   * Create a {@link ParameterClient} to query and set parameters on the ROS
+   * parameter server.
+   * 
+   * @return {@link ParameterClient} with {@link NameResolver} in this
+   *         namespace.
+   */
   public ParameterClient createParameterClient() {
     try {
       return ParameterClient.create(getName(), getMasterUri(), resolver);

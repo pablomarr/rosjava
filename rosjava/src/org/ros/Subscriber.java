@@ -29,8 +29,6 @@ import java.util.concurrent.TimeUnit;
  */
 public class Subscriber<MessageType> {
 
-  private final Class<MessageType> messageClass;
-
   /**
    * Fully namespace qualified name of the subscriber.
    */
@@ -41,9 +39,7 @@ public class Subscriber<MessageType> {
   private final MessageListener<MessageType> messageListener;
 
   protected Subscriber(String topicName, MessageListener<MessageType> messageListener,
-      Class<MessageType> messageClass,
       org.ros.internal.node.topic.Subscriber<MessageType> subscriber) {
-    this.messageClass = messageClass;
     this.topicName = topicName;
     this.messageListener = messageListener;
     this.subscriber = subscriber;
@@ -88,13 +84,6 @@ public class Subscriber<MessageType> {
    */
   public String getTopicName() {
     return topicName;
-  }
-
-  /**
-   * @return the {@link Message} class literal for the subscribed topic.
-   */
-  public Class<MessageType> getTopicMessageClass() {
-    return messageClass;
   }
 
   /**

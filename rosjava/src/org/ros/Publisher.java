@@ -15,8 +15,6 @@
  */
 package org.ros;
 
-import org.ros.message.Message;
-
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -27,7 +25,7 @@ import java.util.concurrent.TimeUnit;
  *          The message type to template on. The publisher may only publish
  *          messages of this type.
  */
-public class Publisher<MessageType extends Message> {
+public class Publisher<MessageType> {
 
   private final org.ros.internal.node.topic.Publisher<MessageType> publisher;
   
@@ -36,19 +34,14 @@ public class Publisher<MessageType extends Message> {
    */
   private final String topicName;
 
-  // deal with type erasure for generics
-  private final Class<MessageType> messageClass;
-
   /**
    * Default package level constructor
    * 
    * @param topicName
    * @param messageClass
    */
-  Publisher(String topicName, Class<MessageType> messageClass,
-      org.ros.internal.node.topic.Publisher<MessageType> publisher) {
+  Publisher(String topicName, org.ros.internal.node.topic.Publisher<MessageType> publisher) {
     this.topicName = topicName;
-    this.messageClass = messageClass;
     this.publisher = publisher;
   }
 
@@ -71,13 +64,6 @@ public class Publisher<MessageType extends Message> {
    */
   public String getTopicName() {
     return topicName;
-  }
-
-  /**
-   * @return The {@link Message} class literal for the published topic.
-   */
-  public Class<MessageType> getTopicMessageClass() {
-    return messageClass;
   }
 
   /**

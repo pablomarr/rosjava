@@ -192,14 +192,14 @@ public interface Node {
   /**
    * Create a service client.
    * 
-   * @param <ResponseMessageType> The message type of the response.
-   * @param serviceIdentifier Identifier for the service.
+   * @param <ResponseType> The message type of the response.
+   * @param serviceDefinition Definition of the service.
    * @param responseMessageClass The message class for the response.
    * @return
    */
-  <ResponseMessageType extends Message> ServiceClient<ResponseMessageType>
-      createServiceClient(ServiceIdentifier serviceIdentifier,
-          Class<ResponseMessageType> responseMessageClass);
+  <ResponseType> ServiceClient<ResponseType>
+      createServiceClient(ServiceDefinition serviceDefinition,
+          Class<ResponseType> responseMessageClass);
 
   /**
    * Returns a {@link ServiceIdentifier} for communicating with the current
@@ -211,7 +211,7 @@ public interface Node {
    * @return {@link ServiceIdentifier} of current {@Service} provider
    *         or null if none present.
    */
-  ServiceIdentifier lookupService(String serviceName, Service<?, ?> serviceType);
+  ServiceIdentifier lookupService(String serviceName);
 
   /**
    * Create a {@link ParameterClient} to query and set parameters on the ROS
