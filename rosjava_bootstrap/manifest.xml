@@ -1,0 +1,22 @@
+<package>
+  <description brief="rosjava_msg">
+
+     Classes for rosjava messages.
+
+  </description>
+  <author>Ken Conley</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/rosjava_msg</url>
+
+  <rosdep name="ant" />
+  <rosdep name="java" />
+
+  <export>
+    <rosjava-src location="src" />
+    <rosjava-pathelement location="dist/rosjava-bootstrap.jar" built="true" />
+  </export>
+    
+</package>
+
+

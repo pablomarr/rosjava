@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project default="default" name="java">
+
+  <property file="ros.properties" />
+  
+  <property name="build" location="build" />
+  <property name="dist" location="dist" />
+  <property name="javac-source" value="1.6" />
+  <property name="javac-target" value="1.6" />
+  <property name="debuglevel" value="source,lines,vars" />
+  <property name="jar.rosjava" location="${dist}/rosjava.jar" />
+
+  <path id="jar.classpath">
+    <pathelement location="lib/dnsjava-2.1.1.jar" />
+    <pathelement location="lib/guava-r07.jar" />
+    <pathelement location="lib/mockito-all-1.8.5.jar" />
+    <pathelement location="lib/netty-3.2.4.Final.jar" />
+    <pathelement location="lib/junit-4.8.2.jar" />
+  </path>
+
+  <path id="classpath">
+    <pathelement location="${build}" />
+    <path refid="jar.classpath" />
+    <pathelement path="${ros.classpath}" />
+  </path>
+
+  <target name="default" depends="init, compile, jar" />
+
+  <target name="init">
+    <fail unless="ros.classpath" message="ros.properties is missing.  Please type 'rosmake rosjava' first "/>
+    <mkdir dir="${build}" />
+    <mkdir dir="${dist}" />
+  </target>
+
+  <target name="compile" depends="init">
+    <!-- copy all assets -->
+    <copy todir="${build}">
+      <fileset dir="src">
+        <exclude name="**/*.java" />
+      </fileset>
+      <fileset dir="tutorials">
+        <exclude name="**/*.java" />
+      </fileset>
+      <fileset dir="tests">
+        <exclude name="**/*.java" />
+      </fileset>
+    </copy>
+
+    <javac debug="true" debuglevel="${debuglevel}" destdir="${build}" source="${javac-source}"
+        target="${javac-target}" includeantruntime="false">
+      <classpath refid="classpath" />
+      <src path="src" />
+      <src path="tutorials" />
+      <src path="tests" />
+    </javac>
+  </target>
+
+  <target name="test" depends="compile">
+    <!-- clear any previous results -->
+    <mkdir dir="${ros.test_results}" />
+    <delete>
+      <fileset dir="${ros.test_results}">
+        <include name="*/**" />
+      </fileset>
+    </delete>
+    <junit printsummary="yes" failureproperty="tests.failed">
+      <classpath refid="classpath" />
+      <formatter type="xml" />
+      <batchtest todir="${ros.test_results}">
+        <fileset dir="tests">
+          <include name="**/*Test.java" />
+        </fileset>
+      </batchtest>
+    </junit>
+    <junitreport todir="${ros.test_results}">
+      <fileset dir="${ros.test_results}">
+        <include name="TEST-*.xml" />
+      </fileset>
+      <!--
+      <report format="frames" todir="${ros.test_results}/html" />
+      -->
+    </junitreport>
+    <fail if="tests.failed" message="one or more tests failed" />
+  </target>
+
+  <target name="jar" depends="compile">
+    <manifestclasspath property="jar.rosjava.classpath" jarfile="${jar.rosjava}">
+      <classpath>
+        <path refid="jar.classpath"/>
+      </classpath>
+    </manifestclasspath>
+    <jar destfile="${jar.rosjava}">
+      <manifest>
+        <attribute name="Main-Class" value="org.ros.RosRun" />
+        <attribute name="Class-Path" value="${jar.rosjava.classpath}" />
+      </manifest>
+      <fileset dir="${build}" />
+    </jar>
+  </target>
+
+  <target name="clean">
+    <delete dir="${build}" />
+    <delete dir="${dist}" />
+    <delete dir="${ros.test_results}" />
+  </target>
+
+</project>
