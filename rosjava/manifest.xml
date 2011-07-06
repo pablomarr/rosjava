@@ -1,0 +1,35 @@
+<package>
+  <description brief="Pure Java ROS client library.">
+    An implementation of ROS in pure-Java with Android support.
+  </description>
+  <author>Damon Kohler/damonkohler@google.com</author>
+  <license>Apache License 2.0</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/rosjava</url>
+  <depend package="roslib"/>
+  <depend package="std_msgs"/>
+  <depend package="rosgraph_msgs"/>
+  <depend package="roslang"/>
+  <depend package="rostest"/>
+  <depend package="test_ros"/>
+  
+  <depend package="rosjava_bootstrap"/>
+  <depend package="apache_xmlrpc" />
+  <depend package="apache_commons_util" />
+  
+  <rosdep name="java"/>
+
+  <export>
+    <rosjava-src location="src" />
+    <rosjava-src location="tests" />    
+    <rosjava-src location="tutorials" />
+    
+    <rosjava-pathelement location="dist/rosjava.jar" built="true" />
+    <rosjava-pathelement location="lib/dnsjava-2.1.1.jar" />
+    <rosjava-pathelement location="lib/guava-r07.jar" />
+    <rosjava-pathelement location="lib/mockito-all-1.8.5.jar" />
+    <rosjava-pathelement location="lib/netty-3.2.4.Final.jar" />
+    <rosjava-pathelement location="lib/junit-4.8.2.jar" />
+  </export>
+</package>
+
