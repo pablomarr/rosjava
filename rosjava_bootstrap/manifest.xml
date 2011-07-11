@@ -1,0 +1,27 @@
+<package>
+  <description brief="rosjava_msg">
+
+     Provide ROS build system integration and bootstrap data
+     classes (Time and Message representation) for rosjava.
+
+     This package includes 
+     <a href="http://code.google.com/p/which/">which.py by Trent Mick</a>, 
+     which is provided separately under an MIT License. 
+
+  </description>
+  <author>Ken Conley</author>
+  <license>Apache License 2.0</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/rosjava_bootstrap</url>
+
+  <rosdep name="ant" />
+  <rosdep name="java" />
+
+  <export>
+    <rosjava-src location="src" />
+    <rosjava-pathelement location="dist/rosjava-bootstrap.jar" built="true" />
+  </export>
+    
+</package>
+
+
