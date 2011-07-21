@@ -21,9 +21,8 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.ros.internal.namespace.GraphName;
-import org.ros.internal.node.address.AdvertiseAddress;
-import org.ros.internal.node.address.BindAddress;
+import org.ros.address.AdvertiseAddress;
+import org.ros.address.BindAddress;
 import org.ros.internal.node.client.MasterClient;
 import org.ros.internal.node.client.SlaveClient;
 import org.ros.internal.node.parameter.ParameterManager;
@@ -32,6 +31,7 @@ import org.ros.internal.node.server.MasterServer;
 import org.ros.internal.node.server.SlaveServer;
 import org.ros.internal.node.service.ServiceManager;
 import org.ros.internal.node.topic.TopicManager;
+import org.ros.namespace.GraphName;
 
 import java.net.URI;
 
@@ -47,16 +47,16 @@ public class MasterSlaveIntegrationTest {
 
   @Before
   public void setUp() {
-    masterServer = new MasterServer(BindAddress.createPublic(0), AdvertiseAddress.createPublic());
+    masterServer = new MasterServer(BindAddress.newPublic(), AdvertiseAddress.newPublic());
     masterServer.start();
     masterClient = new MasterClient(masterServer.getUri());
     TopicManager topicManager = new TopicManager();
     ServiceManager serviceManager = new ServiceManager();
     ParameterManager parameterManager = new ParameterManager();
     slaveServer =
-        new SlaveServer(new GraphName("/foo"), BindAddress.createPublic(0),
-            AdvertiseAddress.createPublic(), BindAddress.createPublic(0),
-            AdvertiseAddress.createPublic(), masterClient, topicManager, serviceManager,
+        new SlaveServer(new GraphName("/foo"), BindAddress.newPublic(),
+            AdvertiseAddress.newPublic(), BindAddress.newPublic(),
+            AdvertiseAddress.newPublic(), masterClient, topicManager, serviceManager,
             parameterManager);
     slaveServer.start();
     slaveClient = new SlaveClient(new GraphName("/bar"), slaveServer.getUri());

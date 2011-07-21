@@ -16,9 +16,12 @@
 
 package org.ros;
 
-import org.ros.internal.node.address.AdvertiseAddress;
-import org.ros.internal.node.address.BindAddress;
+import org.ros.address.AdvertiseAddress;
+import org.ros.address.BindAddress;
+import org.ros.exception.RosRuntimeException;
 import org.ros.internal.node.server.MasterServer;
+import org.ros.node.NodeConfiguration;
+import org.ros.node.NodeMain;
 
 import java.net.URI;
 
@@ -29,16 +32,24 @@ public class RosCore implements NodeMain {
 
   private final MasterServer masterServer;
   
-  public static RosCore createPublic(String host, int port) {
-    return new RosCore(BindAddress.createPublic(port), new AdvertiseAddress(host));
+  public static RosCore newPublic(String host, int port) {
+    return new RosCore(BindAddress.newPublic(port), new AdvertiseAddress(host));
   }
  
-  public static RosCore createPublic(int port) {
-    return new RosCore(BindAddress.createPublic(port), AdvertiseAddress.createPublic());
+  public static RosCore newPublic(int port) {
+    return new RosCore(BindAddress.newPublic(port), AdvertiseAddress.newPublic());
   }
   
-  public static RosCore createPrivate(int port) {
-    return new RosCore(BindAddress.createPrivate(port), AdvertiseAddress.createPrivate());
+  public static RosCore newPublic() {
+    return new RosCore(BindAddress.newPublic(), AdvertiseAddress.newPublic());
+  }
+
+  public static RosCore newPrivate(int port) {
+    return new RosCore(BindAddress.newPrivate(port), AdvertiseAddress.newPrivate());
+  }
+
+  public static RosCore newPrivate() {
+    return new RosCore(BindAddress.newPrivate(), AdvertiseAddress.newPrivate());
   }
 
   private RosCore(BindAddress bindAddress, AdvertiseAddress advertiseAddress) {
@@ -58,7 +69,7 @@ public class RosCore implements NodeMain {
     try {
       masterServer.awaitStart();
     } catch (InterruptedException e) {
-      throw new RuntimeException(e);
+      throw new RosRuntimeException(e);
     }
   }
 

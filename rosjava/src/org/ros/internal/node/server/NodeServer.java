@@ -23,8 +23,9 @@ import org.apache.xmlrpc.server.PropertyHandlerMapping;
 import org.apache.xmlrpc.server.XmlRpcServer;
 import org.apache.xmlrpc.server.XmlRpcServerConfigImpl;
 import org.apache.xmlrpc.webserver.WebServer;
-import org.ros.internal.node.address.AdvertiseAddress;
-import org.ros.internal.node.address.BindAddress;
+import org.ros.address.AdvertiseAddress;
+import org.ros.address.BindAddress;
+import org.ros.exception.RosRuntimeException;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -58,7 +59,7 @@ public class NodeServer {
     startLatch = new CountDownLatch(1);
   }
 
-  public <T extends org.ros.internal.node.xmlrpc.Node> void
+  public <T extends org.ros.internal.node.xmlrpc.XmlRpcEndpoint> void
       start(Class<T> instanceClass, T instance) {
     XmlRpcServer xmlRpcServer = server.getXmlRpcServer();
     PropertyHandlerMapping phm = new PropertyHandlerMapping();
@@ -66,7 +67,7 @@ public class NodeServer {
     try {
       phm.addHandler("", instanceClass);
     } catch (XmlRpcException e) {
-      throw new RuntimeException(e);
+      throw new RosRuntimeException(e);
     }
     xmlRpcServer.setHandlerMapping(phm);
     XmlRpcServerConfigImpl serverConfig = (XmlRpcServerConfigImpl) xmlRpcServer.getConfig();
@@ -75,7 +76,7 @@ public class NodeServer {
     try {
       server.start();
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new RosRuntimeException(e);
     }
     if (DEBUG) {
       log.info("Bound to: " + getUri());

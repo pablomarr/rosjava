@@ -17,12 +17,12 @@
 package org.ros.exception;
 
 /**
- * @author ethan.rublee@gmail.com (Ethan Rublee) 
+ * @author damonkohler@google.com (Damon Kohler)
  */
 public class RosRuntimeException extends RuntimeException {
 
-  public RosRuntimeException(final Exception exception) {
-    super(exception);
+  public RosRuntimeException(final Throwable throwable) {
+    super(throwable);
   }
 
   public RosRuntimeException(final String message, final Throwable throwable) {

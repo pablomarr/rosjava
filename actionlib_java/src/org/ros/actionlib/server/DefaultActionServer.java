@@ -1,23 +1,23 @@
 package org.ros.actionlib.server;
 
-import org.ros.DefaultNode;
-import org.ros.MessageListener;
-import org.ros.Node;
-import org.ros.NodeConfiguration;
-import org.ros.NodeMain;
-import org.ros.ParameterTree;
-import org.ros.Publisher;
-import org.ros.Subscriber;
 import org.ros.actionlib.ActionSpec;
 import org.ros.actionlib.util.GoalIDGenerator;
 import org.ros.exception.RosException;
-import org.ros.exception.RosInitException;
 import org.ros.message.Duration;
 import org.ros.message.Message;
+import org.ros.message.MessageListener;
 import org.ros.message.Time;
 import org.ros.message.actionlib_msgs.GoalID;
 import org.ros.message.actionlib_msgs.GoalStatus;
 import org.ros.message.actionlib_msgs.GoalStatusArray;
+import org.ros.node.DefaultNodeFactory;
+import org.ros.node.Node;
+import org.ros.node.NodeConfiguration;
+import org.ros.node.NodeFactory;
+import org.ros.node.NodeMain;
+import org.ros.node.parameter.ParameterTree;
+import org.ros.node.topic.Publisher;
+import org.ros.node.topic.Subscriber;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -106,8 +106,7 @@ public class DefaultActionServer<T_ACTION_FEEDBACK extends Message, T_ACTION_GOA
   public DefaultActionServer(
       String name,
       ActionSpec<?, T_ACTION_FEEDBACK, T_ACTION_GOAL, T_ACTION_RESULT, T_FEEDBACK, T_GOAL, T_RESULT> spec,
-      ActionServerCallbacks<T_ACTION_FEEDBACK, T_ACTION_GOAL, T_ACTION_RESULT, T_FEEDBACK, T_GOAL, T_RESULT> callbacks)
-      throws RosInitException {
+      ActionServerCallbacks<T_ACTION_FEEDBACK, T_ACTION_GOAL, T_ACTION_RESULT, T_FEEDBACK, T_GOAL, T_RESULT> callbacks) {
 
     this(null, name, spec, callbacks);
   }
@@ -116,8 +115,7 @@ public class DefaultActionServer<T_ACTION_FEEDBACK extends Message, T_ACTION_GOA
       Node parent,
       String name,
       ActionSpec<?, T_ACTION_FEEDBACK, T_ACTION_GOAL, T_ACTION_RESULT, T_FEEDBACK, T_GOAL, T_RESULT> spec,
-      ActionServerCallbacks<T_ACTION_FEEDBACK, T_ACTION_GOAL, T_ACTION_RESULT, T_FEEDBACK, T_GOAL, T_RESULT> callbacks)
-      throws RosInitException {
+      ActionServerCallbacks<T_ACTION_FEEDBACK, T_ACTION_GOAL, T_ACTION_RESULT, T_FEEDBACK, T_GOAL, T_RESULT> callbacks) {
     this.parent = parent;
     this.name = name;
     this.callbacks = callbacks;
@@ -126,10 +124,12 @@ public class DefaultActionServer<T_ACTION_FEEDBACK extends Message, T_ACTION_GOA
 
   @Override
   public void main(NodeConfiguration configuration) throws Exception {
-    if (parent != null)
-      node = new DefaultNode(parent.resolveName(name), configuration);
-    else
-      node = new DefaultNode(name, configuration);
+    NodeFactory nodeFactory = new DefaultNodeFactory();
+    if (parent != null) {
+      node = nodeFactory.newNode(parent.resolveName(name), configuration);
+    } else {
+      node = nodeFactory.newNode(name, configuration);
+    }
 
     idGenerator = new GoalIDGenerator(node);
 
@@ -173,9 +173,9 @@ public class DefaultActionServer<T_ACTION_FEEDBACK extends Message, T_ACTION_GOA
   protected boolean initServer() {
 
     try {
-      pubFeedback = node.createPublisher("feedback", spec.getActionFeedbackMessage());
-      pubResult = node.createPublisher("result", spec.getActionResultMessage());
-      pubStatus = node.createPublisher("status", "actionlib_msgs/GoalStatusArray");
+      pubFeedback = node.newPublisher("feedback", spec.getActionFeedbackMessage());
+      pubResult = node.newPublisher("result", spec.getActionResultMessage());
+      pubStatus = node.newPublisher("status", "actionlib_msgs/GoalStatusArray");
 
       MessageListener<T_ACTION_GOAL> goalCallback = new MessageListener<T_ACTION_GOAL>() {
         @Override
@@ -183,7 +183,7 @@ public class DefaultActionServer<T_ACTION_FEEDBACK extends Message, T_ACTION_GOA
           doGoalCallback(actionGoal);
         }
       };
-      subGoal = node.createSubscriber("goal", spec.getActionGoalMessage(), goalCallback);
+      subGoal = node.newSubscriber("goal", spec.getActionGoalMessage(), goalCallback);
 
       MessageListener<GoalID> cancelCallback = new MessageListener<GoalID>() {
         @Override
@@ -191,7 +191,7 @@ public class DefaultActionServer<T_ACTION_FEEDBACK extends Message, T_ACTION_GOA
           doCancelCallback(goalID);
         }
       };
-      subCancelGoal = node.createSubscriber("cancel", "actionlib_msgs/GoalID", cancelCallback);
+      subCancelGoal = node.newSubscriber("cancel", "actionlib_msgs/GoalID", cancelCallback);
 
     } catch (Exception re) {
 
@@ -222,7 +222,7 @@ public class DefaultActionServer<T_ACTION_FEEDBACK extends Message, T_ACTION_GOA
     double pStatusFrequency;
     double pStatusListTimeout;
 
-    ParameterTree parameterClient = node.createParameterClient();
+    ParameterTree parameterClient = node.newParameterTree();
     try {
       pStatusListTimeout = parameterClient.getDouble("status_list_timeout", 5.0);
     } catch (Exception e) {

@@ -20,9 +20,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
-import org.ros.internal.message.MessageDefinition;
-import org.ros.internal.namespace.GraphName;
+import org.ros.internal.message.new_style.MessageDefinition;
 import org.ros.internal.transport.ConnectionHeaderFields;
+import org.ros.namespace.GraphName;
 
 import java.util.List;
 import java.util.Map;

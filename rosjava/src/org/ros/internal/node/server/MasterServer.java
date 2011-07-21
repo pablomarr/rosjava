@@ -24,14 +24,14 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 
-import org.ros.internal.namespace.GraphName;
-import org.ros.internal.node.address.AdvertiseAddress;
-import org.ros.internal.node.address.BindAddress;
+import org.ros.address.AdvertiseAddress;
+import org.ros.address.BindAddress;
 import org.ros.internal.node.client.SlaveClient;
 import org.ros.internal.node.service.ServiceIdentifier;
 import org.ros.internal.node.topic.PublisherIdentifier;
 import org.ros.internal.node.topic.SubscriberIdentifier;
 import org.ros.internal.node.xmlrpc.MasterImpl;
+import org.ros.namespace.GraphName;
 
 import java.net.URI;
 import java.util.List;
@@ -77,7 +77,8 @@ public class MasterServer extends NodeServer {
 
   private void addSlave(SlaveIdentifier slaveIdentifier) {
     String name = slaveIdentifier.getName().toString();
-    Preconditions.checkState(slaves.get(name) == null || slaves.get(name).equals(slaveIdentifier));
+    Preconditions.checkState(slaves.get(name) == null || slaves.get(name).equals(slaveIdentifier),
+        "Failed to add slave: " + slaveIdentifier + "\nExisting slave: " + slaves.get(name));
     slaves.put(name, slaveIdentifier);
   }
 

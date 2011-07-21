@@ -1,8 +1,8 @@
 package org.ros.actionlib.util;
 
-import org.ros.Node;
 import org.ros.message.Time;
 import org.ros.message.actionlib_msgs.GoalID;
+import org.ros.node.Node;
 
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -49,7 +49,7 @@ public class GoalIDGenerator {
     Time t = node.getCurrentTime();
     GoalID id = new GoalID();
 
-    StringBuilder sb = new StringBuilder(node.getName());
+    StringBuilder sb = new StringBuilder(node.getName().toString());
     sb.append("-").append(goalCount.incrementAndGet()).append("-").append(t.secs).append(".")
         .append(t.nsecs);
 

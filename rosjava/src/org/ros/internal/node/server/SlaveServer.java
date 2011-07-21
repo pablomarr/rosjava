@@ -18,16 +18,15 @@ package org.ros.internal.node.server;
 
 import com.google.common.collect.Lists;
 
-import org.ros.internal.namespace.GraphName;
-import org.ros.internal.node.address.AdvertiseAddress;
-import org.ros.internal.node.address.BindAddress;
+import org.ros.address.AdvertiseAddress;
+import org.ros.address.BindAddress;
 import org.ros.internal.node.client.MasterClient;
 import org.ros.internal.node.parameter.ParameterManager;
+import org.ros.internal.node.service.DefaultServiceServer;
 import org.ros.internal.node.service.ServiceManager;
-import org.ros.internal.node.service.ServiceServer;
-import org.ros.internal.node.topic.Publisher;
+import org.ros.internal.node.topic.DefaultPublisher;
+import org.ros.internal.node.topic.DefaultSubscriber;
 import org.ros.internal.node.topic.PublisherDefinition;
-import org.ros.internal.node.topic.Subscriber;
 import org.ros.internal.node.topic.TopicDefinition;
 import org.ros.internal.node.topic.TopicManager;
 import org.ros.internal.node.xmlrpc.SlaveImpl;
@@ -35,6 +34,7 @@ import org.ros.internal.transport.ProtocolDescription;
 import org.ros.internal.transport.ProtocolNames;
 import org.ros.internal.transport.tcp.TcpRosProtocolDescription;
 import org.ros.internal.transport.tcp.TcpRosServer;
+import org.ros.namespace.GraphName;
 
 import java.lang.management.ManagementFactory;
 import java.net.URI;
@@ -57,7 +57,7 @@ public class SlaveServer extends NodeServer {
       Collection<URI> publisherUriList, TopicDefinition topicDefinition) {
     List<PublisherDefinition> publishers = Lists.newArrayList();
     for (URI uri : publisherUriList) {
-      SlaveIdentifier slaveIdentifier = SlaveIdentifier.createAnonymous(uri);
+      SlaveIdentifier slaveIdentifier = SlaveIdentifier.newAnonymous(uri);
       publishers.add(PublisherDefinition
           .createPublisherDefinition(slaveIdentifier, topicDefinition));
     }
@@ -98,7 +98,7 @@ public class SlaveServer extends NodeServer {
     tcpRosServer.shutdown();
   }
 
-  public void addService(ServiceServer<?, ?> server) {
+  public void addService(DefaultServiceServer<?, ?> server) {
     serviceManager.putServer(server.getName().toString(), server);
   }
 
@@ -148,26 +148,26 @@ public class SlaveServer extends NodeServer {
     throw new UnsupportedOperationException();
   }
 
-  public List<Subscriber<?>> getSubscriptions() {
+  public List<DefaultSubscriber<?>> getSubscriptions() {
     return topicManager.getSubscribers();
   }
 
-  public List<Publisher<?>> getPublications() {
+  public List<DefaultPublisher<?>> getPublications() {
     return topicManager.getPublishers();
   }
 
   /**
-   * @param parameterKey
+   * @param parameterName
    * @param parameterValue
    * @return the number of parameter subscribers that received the update
    */
-  public int paramUpdate(String parameterKey, Object parameterValue) {
-    return parameterManager.updateParameter(parameterKey, parameterValue);
+  public int paramUpdate(GraphName parameterName, Object parameterValue) {
+    return parameterManager.updateParameter(parameterName, parameterValue);
   }
 
   public void publisherUpdate(String callerId, String topicName, Collection<URI> publisherUris) {
     if (topicManager.hasSubscriber(topicName)) {
-      Subscriber<?> subscriber = topicManager.getSubscriber(topicName);
+      DefaultSubscriber<?> subscriber = topicManager.getSubscriber(topicName);
       TopicDefinition topicDefinition = subscriber.getTopicDefinition();
       List<PublisherDefinition> identifiers =
           buildPublisherIdentifierList(publisherUris, topicDefinition);

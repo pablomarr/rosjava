@@ -16,7 +16,7 @@
 
 package org.ros.internal.node.topic;
 
-import org.ros.internal.namespace.GraphName;
+import org.ros.namespace.GraphName;
 
 /**
  * @author damonkohler@google.com (Damon Kohler)

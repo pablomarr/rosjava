@@ -16,8 +16,13 @@
 
 package org.ros;
 
-import org.ros.exception.RosInitException;
+import org.ros.message.MessageListener;
 import org.ros.message.std_msgs.Int64;
+import org.ros.node.DefaultNodeFactory;
+import org.ros.node.Node;
+import org.ros.node.NodeConfiguration;
+import org.ros.node.NodeMain;
+import org.ros.node.topic.Publisher;
 
 /**
  * This node is used to test the slave API externally using rostest.
@@ -29,12 +34,12 @@ public class SlaveApiTestNode implements NodeMain {
   private Node node;
 
   @Override
-  public void main(NodeConfiguration nodeConfiguration) throws RosInitException {
-    node = new DefaultNode("test_node", nodeConfiguration);
+  public void main(NodeConfiguration nodeConfiguration) {
+    node = new DefaultNodeFactory().newNode("test_node", nodeConfiguration);
 
     // Basic chatter in/out test.
     Publisher<org.ros.message.std_msgs.String> pub_string =
-        node.createPublisher("chatter_out", "std_msgs/String");
+        node.newPublisher("chatter_out", "std_msgs/String");
     MessageListener<org.ros.message.std_msgs.String> chatter_cb =
         new MessageListener<org.ros.message.std_msgs.String>() {
           @Override
@@ -43,17 +48,17 @@ public class SlaveApiTestNode implements NodeMain {
           }
         };
 
-    node.createSubscriber("chatter_in", "std_msgs/String", chatter_cb);
+    node.newSubscriber("chatter_in", "std_msgs/String", chatter_cb);
 
     // Have at least one case of dual pub/sub on the same topic.
-    Publisher<Int64> pub_int64_pubsub = node.createPublisher("int64", "std_msgs/Int64");
+    Publisher<Int64> pub_int64_pubsub = node.newPublisher("int64", "std_msgs/Int64");
     MessageListener<Int64> int64_cb = new MessageListener<Int64>() {
       @Override
       public void onNewMessage(Int64 m) {
       }
     };
 
-    node.createSubscriber("int64", "std_msgs/Int64", int64_cb);
+    node.newSubscriber("int64", "std_msgs/Int64", int64_cb);
 
     // Don't do any performance optimizations here. We want to make sure that
     // GC, etc. is working.

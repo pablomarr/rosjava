@@ -16,6 +16,8 @@
 
 package org.ros.internal.node.response;
 
+import org.ros.exception.RosRuntimeException;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 
@@ -29,7 +31,7 @@ public class UriResultFactory implements ResultFactory<URI> {
     try {
       return new URI((String) value);
     } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
+      throw new RosRuntimeException(e);
     }
   }
 

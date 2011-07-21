@@ -23,7 +23,7 @@ import com.google.common.collect.Maps;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.ros.internal.namespace.GraphName;
+import org.ros.namespace.GraphName;
 
 import java.util.Collection;
 import java.util.Map;

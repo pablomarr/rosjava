@@ -25,9 +25,10 @@ import org.ros.internal.node.response.Response;
 import org.ros.internal.node.response.StatusCode;
 import org.ros.internal.node.server.ServerException;
 import org.ros.internal.node.server.SlaveServer;
-import org.ros.internal.node.topic.Publisher;
-import org.ros.internal.node.topic.Subscriber;
+import org.ros.internal.node.topic.DefaultPublisher;
+import org.ros.internal.node.topic.DefaultSubscriber;
 import org.ros.internal.transport.ProtocolDescription;
+import org.ros.namespace.GraphName;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -89,9 +90,9 @@ public class SlaveImpl implements Slave {
 
   @Override
   public List<Object> getSubscriptions(String callerId) {
-    List<Subscriber<?>> subscribers = slave.getSubscriptions();
+    List<DefaultSubscriber<?>> subscribers = slave.getSubscriptions();
     List<List<String>> subscriptions = Lists.newArrayList();
-    for (Subscriber<?> subscriber : subscribers) {
+    for (DefaultSubscriber<?> subscriber : subscribers) {
       subscriptions.add(subscriber.getTopicDefinitionAsList());
     }
     return Response.createSuccess("Success", subscriptions).toList();
@@ -99,20 +100,20 @@ public class SlaveImpl implements Slave {
 
   @Override
   public List<Object> getPublications(String callerId) {
-    List<Publisher<?>> publishers = slave.getPublications();
+    List<DefaultPublisher<?>> publishers = slave.getPublications();
     List<List<String>> publications = Lists.newArrayList();
-    for (Publisher<?> publisher : publishers) {
+    for (DefaultPublisher<?> publisher : publishers) {
       publications.add(publisher.getTopicDefinitionAsList());
     }
     return Response.createSuccess("Success", publications).toList();
   }
 
-  private List<Object> parameterUpdate(String parameterKey, Object parameterValue) {
-    if (slave.paramUpdate(parameterKey, parameterValue) > 0) {
+  private List<Object> parameterUpdate(String parameterName, Object parameterValue) {
+    if (slave.paramUpdate(new GraphName(parameterName), parameterValue) > 0) {
       return Response.createSuccess("Success", null).toList();
     }
-    return Response.createError("No subscribers for parameter key \"" + parameterKey + "\".", null)
-        .toList();
+    return Response
+        .createError("No subscribers for parameter key \"" + parameterName + "\".", null).toList();
   }
 
   @Override

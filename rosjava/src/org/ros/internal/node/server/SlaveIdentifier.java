@@ -19,8 +19,9 @@ package org.ros.internal.node.server;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 
-import org.ros.internal.namespace.GraphName;
+import org.ros.exception.RosRuntimeException;
 import org.ros.internal.transport.ConnectionHeaderFields;
+import org.ros.namespace.GraphName;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -34,11 +35,11 @@ public class SlaveIdentifier {
   private final GraphName name;
   private final URI uri;
 
-  public static SlaveIdentifier createFromStrings(String nodeName, String uri) {
+  public static SlaveIdentifier newFromStrings(String nodeName, String uri) {
     try {
       return new SlaveIdentifier(new GraphName(nodeName), new URI(uri));
     } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
+      throw new RosRuntimeException(e);
     }
   }
 
@@ -50,11 +51,12 @@ public class SlaveIdentifier {
   }
 
   /**
-   * @param uri the {@link URI} of the {@link SlaveServer}
-   * @return a {@link SlaveIdentifier} with a {@link URI} but no name
+   * @param uri
+   *          the {@link URI} of the {@link SlaveServer}
+   * @return an anonymous {@link SlaveIdentifier} with the specified {@link URI}
    */
-  public static SlaveIdentifier createAnonymous(URI uri) {
-    return new SlaveIdentifier(GraphName.createUnknown(), uri);
+  static SlaveIdentifier newAnonymous(URI uri) {
+    return new SlaveIdentifier(GraphName.newAnonymous(), uri);
   }
 
   @Override
