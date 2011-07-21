@@ -18,8 +18,7 @@ package org.ros.namespace;
 
 import com.google.common.base.Preconditions;
 
-import org.ros.exception.RosNameException;
-import org.ros.internal.namespace.GraphName;
+import org.ros.exception.RosRuntimeException;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -34,21 +33,24 @@ public class NameResolver {
   private final GraphName namespace;
   private final Map<GraphName, GraphName> remappings;
 
-  public static NameResolver
-      createFromString(String namespace, Map<GraphName, GraphName> remappings) {
+  public static NameResolver create(String namespace, Map<GraphName, GraphName> remappings) {
     return new NameResolver(new GraphName(namespace), remappings);
   }
 
-  public static NameResolver createFromString(String namespace) {
-    return NameResolver.createFromString(namespace, new HashMap<GraphName, GraphName>());
+  public static NameResolver create(GraphName namespace) {
+    return new NameResolver(namespace, new HashMap<GraphName, GraphName>());
   }
 
-  public static NameResolver createDefault(Map<GraphName, GraphName> remappings) {
-    return new NameResolver(GraphName.createRoot(), remappings);
+  public static NameResolver create(String namespace) {
+    return create(new GraphName(namespace));
   }
 
-  public static NameResolver createDefault() {
-    return NameResolver.createDefault(new HashMap<GraphName, GraphName>());
+  public static NameResolver create(Map<GraphName, GraphName> remappings) {
+    return new NameResolver(GraphName.newRoot(), remappings);
+  }
+
+  public static NameResolver create() {
+    return create(GraphName.newRoot());
   }
 
   public NameResolver(GraphName namespace, Map<GraphName, GraphName> remappings) {
@@ -83,13 +85,30 @@ public class NameResolver {
       return remappedNamespace.join(remappedName);
     }
     if (remappedName.isPrivate()) {
-      throw new RosNameException("Cannot resolve ~private names in arbitrary namespaces.");
+      throw new RosRuntimeException("Cannot resolve ~private names in arbitrary namespaces.");
     }
-    throw new RosNameException("Unable to resolve name: " + name);
+    throw new RosRuntimeException("Unable to resolve graph name: " + name);
   }
 
-  public String resolve(String namespace, String name) {
-    return resolve(new GraphName(namespace), new GraphName(name)).toString();
+  /**
+   * @see #resolve(GraphName, GraphName)
+   */
+  public GraphName resolve(String namespace, String name) {
+    return resolve(new GraphName(namespace), new GraphName(name));
+  }
+
+  /**
+   * @see #resolve(GraphName, GraphName)
+   */
+  public GraphName resolve(GraphName namespace, String name) {
+    return resolve(namespace, new GraphName(name));
+  }
+
+  /**
+   * @see #resolve(GraphName, GraphName)
+   */
+  public GraphName resolve(String namespace, GraphName name) {
+    return resolve(new GraphName(namespace), name);
   }
 
   /**
@@ -101,25 +120,16 @@ public class NameResolver {
     return resolve(getNamespace(), name);
   }
 
-  public String resolve(String name) {
-    return resolve(getNamespace(), new GraphName(name)).toString();
+  /**
+   * @see #resolve(GraphName)
+   */
+  public GraphName resolve(String name) {
+    return resolve(new GraphName(name));
   }
 
   /**
-   * Convenience function for looking up a remapping.
-   * 
-   * @param name
-   *          The name to lookup.
-   * @return The name if it is not remapped, otherwise the remapped name.
+   * @return remappings
    */
-  protected GraphName lookUpRemapping(GraphName name) {
-    GraphName rmname = name;
-    if (remappings.containsKey(name)) {
-      rmname = remappings.get(name);
-    }
-    return rmname;
-  }
-
   public Map<GraphName, GraphName> getRemappings() {
     return remappings;
   }
@@ -135,6 +145,14 @@ public class NameResolver {
   public NameResolver createResolver(GraphName name) {
     GraphName resolverNamespace = resolve(name);
     return new NameResolver(resolverNamespace, remappings);
+  }
+
+  protected GraphName lookUpRemapping(GraphName name) {
+    GraphName rmname = name;
+    if (remappings.containsKey(name)) {
+      rmname = remappings.get(name);
+    }
+    return rmname;
   }
 
 }

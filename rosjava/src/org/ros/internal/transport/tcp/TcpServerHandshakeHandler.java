@@ -26,10 +26,11 @@ import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelHandler;
+import org.ros.exception.RosRuntimeException;
 import org.ros.internal.node.service.ServiceManager;
 import org.ros.internal.node.service.ServiceResponseEncoder;
-import org.ros.internal.node.service.ServiceServer;
-import org.ros.internal.node.topic.Publisher;
+import org.ros.internal.node.service.DefaultServiceServer;
+import org.ros.internal.node.topic.DefaultPublisher;
 import org.ros.internal.node.topic.TopicManager;
 import org.ros.internal.transport.ConnectionHeader;
 import org.ros.internal.transport.ConnectionHeaderFields;
@@ -43,7 +44,7 @@ import java.util.Map;
  * @author kwc@willowgarage.com (Ken Conley)
  */
 public class TcpServerHandshakeHandler extends SimpleChannelHandler {
-  
+
   private final TopicManager topicManager;
   private final ServiceManager serviceManager;
 
@@ -64,7 +65,7 @@ public class TcpServerHandshakeHandler extends SimpleChannelHandler {
     if (incomingHeader.containsKey(ConnectionHeaderFields.SERVICE)) {
       String serviceName = incomingHeader.get(ConnectionHeaderFields.SERVICE);
       Preconditions.checkState(serviceManager.hasServer(serviceName));
-      ServiceServer<?, ?> serviceServer = serviceManager.getServer(serviceName);
+      DefaultServiceServer<?, ?> serviceServer = serviceManager.getServer(serviceName);
       ChannelBuffer outgoingBuffer = serviceServer.finishHandshake(incomingHeader);
       if (outgoingBuffer == null) {
         // This is just a probe.
@@ -76,23 +77,25 @@ public class TcpServerHandshakeHandler extends SimpleChannelHandler {
         pipeline.replace(this, "ServiceRequestHandler", serviceServer.createRequestHandler());
       }
     } else {
-      Preconditions.checkState(incomingHeader.containsKey(ConnectionHeaderFields.TOPIC));
+      Preconditions.checkState(incomingHeader.containsKey(ConnectionHeaderFields.TOPIC),
+          "Handshake header missing field: " + ConnectionHeaderFields.TOPIC);
       String topicName = incomingHeader.get(ConnectionHeaderFields.TOPIC);
-      Preconditions.checkState(topicManager.hasPublisher(topicName));
-      Publisher<?> publisher = topicManager.getPublisher(topicName);
+      Preconditions.checkState(topicManager.hasPublisher(topicName), "No publisher for topic: "
+          + topicName);
+      DefaultPublisher<?> publisher = topicManager.getPublisher(topicName);
       ChannelBuffer outgoingBuffer = publisher.finishHandshake(incomingHeader);
       Channel channel = ctx.getChannel();
       ChannelFuture future = channel.write(outgoingBuffer).await();
       if (!future.isSuccess()) {
-        throw new RuntimeException(future.getCause());
+        throw new RosRuntimeException(future.getCause());
       }
       publisher.addChannel(channel);
-      
+
       // Once the handshake is complete, there will be nothing incoming on the
       // channel. Replace the handshake handler with a handler which will
       // drop everything.
       pipeline.replace(this, "DiscardHandler", new SimpleChannelHandler());
     }
   }
-  
+
 }

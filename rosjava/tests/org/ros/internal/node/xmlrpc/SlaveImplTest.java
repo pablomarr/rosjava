@@ -25,14 +25,14 @@ import com.google.common.collect.Sets;
 
 import org.junit.Test;
 import org.mockito.Matchers;
-import org.ros.internal.namespace.GraphName;
-import org.ros.internal.node.address.AdvertiseAddress;
+import org.ros.address.AdvertiseAddress;
 import org.ros.internal.node.response.StatusCode;
 import org.ros.internal.node.server.ServerException;
 import org.ros.internal.node.server.SlaveServer;
-import org.ros.internal.node.topic.Publisher;
+import org.ros.internal.node.topic.DefaultPublisher;
 import org.ros.internal.transport.ProtocolNames;
 import org.ros.internal.transport.tcp.TcpRosProtocolDescription;
+import org.ros.namespace.GraphName;
 
 import java.util.List;
 
@@ -44,7 +44,7 @@ public class SlaveImplTest {
   @Test
   public void testGetPublicationsEmptyList() {
     SlaveServer mockSlave = mock(SlaveServer.class);
-    when(mockSlave.getPublications()).thenReturn(Lists.<Publisher<?>>newArrayList());
+    when(mockSlave.getPublications()).thenReturn(Lists.<DefaultPublisher<?>>newArrayList());
     SlaveImpl slave = new SlaveImpl(mockSlave);
     List<Object> response = slave.getPublications("/foo");
     assertEquals(response.get(0), StatusCode.SUCCESS.toInt());
@@ -54,9 +54,9 @@ public class SlaveImplTest {
   @Test
   public void testGetPublications() {
     SlaveServer mockSlave = mock(SlaveServer.class);
-    Publisher<?> mockPublisher = mock(Publisher.class);
-    when(mockSlave.getPublications()).thenReturn(Lists.<Publisher<?>>newArrayList(mockPublisher));
-    when(mockPublisher.getTopicGraphName()).thenReturn(new GraphName("/bar"));
+    DefaultPublisher<?> mockPublisher = mock(DefaultPublisher.class);
+    when(mockSlave.getPublications()).thenReturn(Lists.<DefaultPublisher<?>>newArrayList(mockPublisher));
+    when(mockPublisher.getTopicName()).thenReturn(new GraphName("/bar"));
     when(mockPublisher.getTopicMessageType()).thenReturn("/baz");
     when(mockPublisher.getTopicDefinitionAsList()).thenReturn(Lists.newArrayList("/bar", "/baz"));
     SlaveImpl slave = new SlaveImpl(mockSlave);
@@ -70,7 +70,7 @@ public class SlaveImplTest {
   @Test
   public void testRequestTopic() throws ServerException {
     SlaveServer mockSlave = mock(SlaveServer.class);
-    AdvertiseAddress address = AdvertiseAddress.createPrivate();
+    AdvertiseAddress address = AdvertiseAddress.newPrivate();
     address.setStaticPort(1234);
     TcpRosProtocolDescription protocol = new TcpRosProtocolDescription(address);
     when(
@@ -87,7 +87,7 @@ public class SlaveImplTest {
   @Test
   public void testGetPid() {
     SlaveServer mockSlave = mock(SlaveServer.class);
-    AdvertiseAddress address = AdvertiseAddress.createPrivate();
+    AdvertiseAddress address = AdvertiseAddress.newPrivate();
     address.setStaticPort(1234);
     when(mockSlave.getPid()).thenReturn(1234);
     SlaveImpl slave = new SlaveImpl(mockSlave);
@@ -99,7 +99,7 @@ public class SlaveImplTest {
   @Test
   public void testGetPidNotSupported() {
     SlaveServer mockSlave = mock(SlaveServer.class);
-    AdvertiseAddress address = AdvertiseAddress.createPrivate();
+    AdvertiseAddress address = AdvertiseAddress.newPrivate();
     address.setStaticPort(1234);
     when(mockSlave.getPid()).thenThrow(new UnsupportedOperationException());
     SlaveImpl slave = new SlaveImpl(mockSlave);

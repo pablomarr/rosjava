@@ -2,14 +2,13 @@ package org.ros.actionlib.server;
 
 import com.google.common.base.Preconditions;
 
-import org.ros.Node;
-import org.ros.NodeConfiguration;
-import org.ros.NodeMain;
 import org.ros.actionlib.ActionSpec;
 import org.ros.exception.RosException;
-import org.ros.exception.RosInitException;
 import org.ros.message.Message;
 import org.ros.message.actionlib_msgs.GoalStatus;
+import org.ros.node.Node;
+import org.ros.node.NodeConfiguration;
+import org.ros.node.NodeMain;
 
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -66,7 +65,7 @@ public class DefaultSimpleActionServer<T_ACTION_FEEDBACK extends Message, T_ACTI
       String nameSpace,
       ActionSpec<?, T_ACTION_FEEDBACK, T_ACTION_GOAL, T_ACTION_RESULT, T_FEEDBACK, T_GOAL, T_RESULT> spec,
       SimpleActionServerCallbacks<T_ACTION_FEEDBACK, T_ACTION_GOAL, T_ACTION_RESULT, T_FEEDBACK, T_GOAL, T_RESULT> callbacks,
-      boolean useBlockingGoalCallback) throws RosInitException {
+      boolean useBlockingGoalCallback) {
     Preconditions.checkNotNull(callbacks);
     this.callbacks = callbacks;
     this.actionServer =
@@ -84,7 +83,7 @@ public class DefaultSimpleActionServer<T_ACTION_FEEDBACK extends Message, T_ACTI
       String nameSpace,
       ActionSpec<?, T_ACTION_FEEDBACK, T_ACTION_GOAL, T_ACTION_RESULT, T_FEEDBACK, T_GOAL, T_RESULT> spec,
       SimpleActionServerCallbacks<T_ACTION_FEEDBACK, T_ACTION_GOAL, T_ACTION_RESULT, T_FEEDBACK, T_GOAL, T_RESULT> callbacks,
-      boolean useBlockingGoalCallback) throws RosInitException {
+      boolean useBlockingGoalCallback) {
 
     this.callbacks = callbacks;
     this.actionServer =
@@ -106,6 +105,7 @@ public class DefaultSimpleActionServer<T_ACTION_FEEDBACK extends Message, T_ACTI
    * @return The new goal.
    * @throws RosException
    */
+  @Override
   public T_GOAL acceptNewGoal() throws RosException {
     lock.lock();
     try {
@@ -143,14 +143,17 @@ public class DefaultSimpleActionServer<T_ACTION_FEEDBACK extends Message, T_ACTI
 
   }
 
+  @Override
   public boolean isNewGoalAvailable() {
     return newGoal;
   }
 
+  @Override
   public boolean isPreemptRequested() {
     return newGoalPreemptRequest;
   }
 
+  @Override
   public boolean isActive() {
 
     if (currentGoal == null) {
@@ -162,10 +165,12 @@ public class DefaultSimpleActionServer<T_ACTION_FEEDBACK extends Message, T_ACTI
 
   }
 
+  @Override
   public void setSucceeded() {
     setSucceeded(actionServer.spec.createResultMessage(), "");
   }
 
+  @Override
   public void setSucceeded(T_RESULT result, String text) {
 
     lock.lock();
@@ -179,10 +184,12 @@ public class DefaultSimpleActionServer<T_ACTION_FEEDBACK extends Message, T_ACTI
 
   }
 
+  @Override
   public void setAborted() {
     setAborted(actionServer.spec.createResultMessage(), "");
   }
 
+  @Override
   public void setAborted(T_RESULT result, String text) {
 
     lock.lock();
@@ -196,10 +203,12 @@ public class DefaultSimpleActionServer<T_ACTION_FEEDBACK extends Message, T_ACTI
 
   }
 
+  @Override
   public void setPreempted() {
     setPreempted(actionServer.spec.createResultMessage(), "");
   }
 
+  @Override
   public void setPreempted(T_RESULT result, String text) {
 
     lock.lock();
@@ -213,6 +222,7 @@ public class DefaultSimpleActionServer<T_ACTION_FEEDBACK extends Message, T_ACTI
 
   }
 
+  @Override
   public void publishFeedback(T_FEEDBACK feedback) {
     currentGoal.publishFeedback(feedback);
   }

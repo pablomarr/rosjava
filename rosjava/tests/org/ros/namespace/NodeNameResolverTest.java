@@ -13,48 +13,54 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+
 package org.ros.namespace;
 
-import org.ros.internal.namespace.GraphName;
+import static org.ros.Assert.assertGraphNameEquals;
+
+import org.junit.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class NodeNameResolverTest extends NameResolverTest {
+/**
+ * @author kwc@willowgarage.com (Ken Conley)
+ */
+public class NodeNameResolverTest {
 
-  @Override
+  @Test
   public void testResolveNameOneArg() {
     Map<GraphName, GraphName> remappings = new HashMap<GraphName, GraphName>();
     GraphName nodeName = new GraphName("/node");
-    NodeNameResolver r = NodeNameResolver.create(NameResolver.createDefault(remappings), nodeName);
+    NodeNameResolver r = new NodeNameResolver(nodeName, NameResolver.create(remappings));
 
-    assertEquals("/foo", r.resolve("foo"));
-    assertEquals("/foo", r.resolve("/foo"));
-    assertEquals("/foo/bar", r.resolve("foo/bar"));
+    assertGraphNameEquals("/foo", r.resolve("foo"));
+    assertGraphNameEquals("/foo", r.resolve("/foo"));
+    assertGraphNameEquals("/foo/bar", r.resolve("foo/bar"));
 
-    assertEquals("/node/foo", r.resolve("~foo"));
-    assertEquals("/node/foo/bar", r.resolve("~foo/bar"));
+    assertGraphNameEquals("/node/foo", r.resolve("~foo"));
+    assertGraphNameEquals("/node/foo/bar", r.resolve("~foo/bar"));
     // https://code.ros.org/trac/ros/ticket/3044
-    assertEquals("/node/foo", r.resolve("~/foo"));
+    assertGraphNameEquals("/node/foo", r.resolve("~/foo"));
 
     nodeName = new GraphName("/ns1/node");
-    r = NodeNameResolver.create(NameResolver.createDefault(remappings), nodeName);
-    assertEquals("/ns1/node/foo", r.resolve("~foo"));
-    assertEquals("/ns1/node/foo", r.resolve("~/foo"));
-    assertEquals("/ns1/node/foo/bar", r.resolve("~/foo/bar"));
+    r = new NodeNameResolver(nodeName, NameResolver.create(remappings));
+    assertGraphNameEquals("/ns1/node/foo", r.resolve("~foo"));
+    assertGraphNameEquals("/ns1/node/foo", r.resolve("~/foo"));
+    assertGraphNameEquals("/ns1/node/foo/bar", r.resolve("~/foo/bar"));
 
     // Test case where private name is not is same namespace as default
     nodeName = new GraphName("/ns2/node");
-    r = NodeNameResolver.create(NameResolver.createFromString("/ns1", remappings), nodeName);
+    r = new NodeNameResolver(nodeName, NameResolver.create("/ns1", remappings));
 
-    assertEquals("/ns1/foo", r.resolve("foo"));
-    assertEquals("/foo", r.resolve("/foo"));
-    assertEquals("/ns1/foo/bar", r.resolve("foo/bar"));
+    assertGraphNameEquals("/ns1/foo", r.resolve("foo"));
+    assertGraphNameEquals("/foo", r.resolve("/foo"));
+    assertGraphNameEquals("/ns1/foo/bar", r.resolve("foo/bar"));
 
-    assertEquals("/ns2/node/foo", r.resolve("~foo"));
-    assertEquals("/ns2/node/foo/bar", r.resolve("~foo/bar"));
+    assertGraphNameEquals("/ns2/node/foo", r.resolve("~foo"));
+    assertGraphNameEquals("/ns2/node/foo/bar", r.resolve("~foo/bar"));
     // https://code.ros.org/trac/ros/ticket/3044
-    assertEquals("/ns2/node/foo", r.resolve("~/foo"));
+    assertGraphNameEquals("/ns2/node/foo", r.resolve("~/foo"));
   }
 
 }

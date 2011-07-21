@@ -16,14 +16,11 @@
 
 package org.ros.namespace;
 
-import org.ros.Node;
-import org.ros.internal.namespace.GraphName;
-
-import java.util.Map;
+import org.ros.node.Node;
 
 /**
- * Resolver for {@link Node} names. Node namespace must handle the ~name syntax
- * for private names.
+ * Resolver for {@link Node} names. {@link Node} namespace must handle the ~name
+ * syntax for private names.
  * 
  * @author ethan.rublee@gmail.com (Ethan Rublee)
  * @author kwc@willowgarage.com (Ken Conley)
@@ -32,15 +29,16 @@ public class NodeNameResolver extends NameResolver {
 
   private final GraphName privateNamespace;
 
-  public static NodeNameResolver create(NameResolver defaultResolver, GraphName nodeName) {
-    return new NodeNameResolver(defaultResolver.getNamespace(), nodeName,
-        defaultResolver.getRemappings());
-  }
-
-  private NodeNameResolver(GraphName defaultNamespace, GraphName privateNamespace,
-      Map<GraphName, GraphName> remappings) {
-    super(defaultNamespace, remappings);
-    this.privateNamespace = privateNamespace;
+  /**
+   * @param nodeName
+   *          the name of the {@link Node}
+   * @param defaultResolver
+   *          the {@link NameResolver} to use if asked to resolve a non-private
+   *          name
+   */
+  public NodeNameResolver(GraphName nodeName, NameResolver defaultResolver) {
+    super(defaultResolver.getNamespace(), defaultResolver.getRemappings());
+    this.privateNamespace = nodeName;
   }
 
   /**
@@ -57,9 +55,12 @@ public class NodeNameResolver extends NameResolver {
     return super.resolve(name);
   }
 
+  /**
+   * @see #resolve(GraphName)
+   */
   @Override
-  public String resolve(String name) {
-    return resolve(new GraphName(name)).toString();
+  public GraphName resolve(String name) {
+    return resolve(new GraphName(name));
   }
 
 }

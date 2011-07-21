@@ -17,12 +17,12 @@
 package org.ros.tutorials.pubsub;
 
 import org.apache.commons.logging.Log;
-import org.ros.DefaultNode;
-import org.ros.MessageListener;
-import org.ros.Node;
-import org.ros.NodeConfiguration;
-import org.ros.NodeMain;
-import org.ros.Subscriber;
+import org.ros.message.MessageListener;
+import org.ros.node.DefaultNodeFactory;
+import org.ros.node.Node;
+import org.ros.node.NodeConfiguration;
+import org.ros.node.NodeMain;
+import org.ros.node.topic.Subscriber;
 
 /**
  * This is a simple rosjava {@link Subscriber} {@link Node}. It assumes an
@@ -37,9 +37,9 @@ public class Listener implements NodeMain {
   @Override
   public void main(NodeConfiguration configuration) {
     try {
-      node = new DefaultNode("listener", configuration);
+      node = new DefaultNodeFactory().newNode("listener", configuration);
       final Log log = node.getLog();
-      node.createSubscriber("chatter", "std_msgs/String",
+      node.newSubscriber("chatter", "std_msgs/String",
           new MessageListener<org.ros.message.std_msgs.String>() {
             @Override
             public void onNewMessage(org.ros.message.std_msgs.String message) {

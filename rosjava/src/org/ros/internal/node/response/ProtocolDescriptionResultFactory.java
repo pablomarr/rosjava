@@ -16,16 +16,15 @@
 
 package org.ros.internal.node.response;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.concurrent.Callable;
+import com.google.common.base.Preconditions;
 
-import org.ros.internal.node.address.AdvertiseAddress;
+import org.ros.address.AdvertiseAddress;
 import org.ros.internal.transport.ProtocolDescription;
 import org.ros.internal.transport.ProtocolNames;
 import org.ros.internal.transport.tcp.TcpRosProtocolDescription;
 
-import com.google.common.base.Preconditions;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * @author damonkohler@google.com (Damon Kohler)
@@ -38,13 +37,7 @@ public class ProtocolDescriptionResultFactory implements ResultFactory<ProtocolD
     Preconditions.checkState(protocolParameters.size() == 3);
     Preconditions.checkState(protocolParameters.get(0).equals(ProtocolNames.TCPROS));
     AdvertiseAddress address = new AdvertiseAddress((String) protocolParameters.get(1));
-    final int port = (Integer) protocolParameters.get(2);
-    address.setPortCallable(new Callable<Integer>() {
-      @Override
-      public Integer call() throws Exception {
-        return port;
-      }
-    });
+    address.setStaticPort((Integer) protocolParameters.get(2));
     return new TcpRosProtocolDescription(address);
   }
 

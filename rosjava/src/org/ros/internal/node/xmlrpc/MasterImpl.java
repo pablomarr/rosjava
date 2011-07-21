@@ -18,7 +18,7 @@ package org.ros.internal.node.xmlrpc;
 
 import com.google.common.collect.Lists;
 
-import org.ros.internal.namespace.GraphName;
+import org.ros.exception.RosRuntimeException;
 import org.ros.internal.node.response.Response;
 import org.ros.internal.node.server.MasterServer;
 import org.ros.internal.node.server.SlaveIdentifier;
@@ -26,6 +26,7 @@ import org.ros.internal.node.service.ServiceIdentifier;
 import org.ros.internal.node.topic.PublisherIdentifier;
 import org.ros.internal.node.topic.SubscriberIdentifier;
 import org.ros.internal.node.topic.TopicIdentifier;
+import org.ros.namespace.GraphName;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -79,7 +80,7 @@ public class MasterImpl implements Master, ParameterServer {
   @Override
   public List<Object> registerPublisher(String callerId, String topic, String topicType,
       String callerApi) {
-    SlaveIdentifier slaveIdentifier = SlaveIdentifier.createFromStrings(callerId, callerApi);
+    SlaveIdentifier slaveIdentifier = SlaveIdentifier.newFromStrings(callerId, callerApi);
     PublisherIdentifier publisherIdentifier =
         new PublisherIdentifier(slaveIdentifier, new TopicIdentifier(new GraphName(topic)));
     List<SubscriberIdentifier> subscribers = master.registerPublisher(publisherIdentifier);
@@ -105,7 +106,7 @@ public class MasterImpl implements Master, ParameterServer {
     try {
       serviceIdentifier = new ServiceIdentifier(new GraphName(serviceName), new URI(serviceApi));
     } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
+      throw new RosRuntimeException(e);
     }
     master.registerService(serviceIdentifier);
     return Response.createSuccess("Success", 0).toList();
@@ -117,7 +118,7 @@ public class MasterImpl implements Master, ParameterServer {
     try {
       serviceIdentifier = new ServiceIdentifier(new GraphName(serviceName), new URI(serviceApi));
     } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
+      throw new RosRuntimeException(e);
     }
     int result = master.unregisterService(serviceIdentifier);
     return Response.createSuccess("Success", result).toList();
@@ -197,7 +198,7 @@ public class MasterImpl implements Master, ParameterServer {
   @Override
   public List<Object> subscribeParam(String callerId, String callerApi, String key) {
     parameterServer.subscribe(new GraphName(key),
-        SlaveIdentifier.createFromStrings(callerId, callerApi));
+        SlaveIdentifier.newFromStrings(callerId, callerApi));
     Object value = parameterServer.get(new GraphName(key));
     if (value == null) {
       // Must return an empty map as the value of an unset parameter.

@@ -16,65 +16,27 @@
 
 package org.ros.internal.node.topic;
 
-import org.ros.internal.namespace.GraphName;
+import org.ros.internal.node.client.Registrant;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import org.ros.namespace.GraphName;
 
 /**
+ * Represents a ROS topic.
+ * 
+ * @see http://www.ros.org/wiki/Topics
+ * 
  * @author damonkohler@google.com (Damon Kohler)
  */
-public class Topic {
+public interface Topic extends Registrant {
 
-  private final TopicDefinition topicDefinition;
-  private final CountDownLatch registrationLatch;
+  /**
+   * @return the name of the subscribed topic
+   */
+  GraphName getTopicName();
 
-  public Topic(TopicDefinition topicDefinition) {
-    this.topicDefinition = topicDefinition;
-    registrationLatch = new CountDownLatch(1);
-  }
-
-  public TopicDefinition getTopicDefinition() {
-    return topicDefinition;
-  }
-
-  public List<String> getTopicDefinitionAsList() {
-    return topicDefinition.toList();
-  }
-  
-  public String getTopicName() {
-    return getTopicGraphName().toString();
-  }
-
-  public GraphName getTopicGraphName() {
-    return topicDefinition.getName();
-  }
-
-  public String getTopicMessageType() {
-    return topicDefinition.getMessageType();
-  }
-
-  public Map<String, String> getTopicDefinitionHeader() {
-    return topicDefinition.toHeader();
-  }
-
-  public void signalRegistrationDone() {
-    registrationLatch.countDown();
-  }
-
-  public boolean isRegistered() {
-    return registrationLatch.getCount() == 0;
-  }
-
-  public void awaitRegistration() throws InterruptedException {
-    registrationLatch.await();
-  }
-
-  public boolean awaitRegistration(long timeout, TimeUnit unit)
-      throws InterruptedException {
-    return registrationLatch.await(timeout, unit);
-  }
+  /**
+   * @return the message type (e.g. "std_msgs/String")
+   */
+  String getTopicMessageType();
 
 }

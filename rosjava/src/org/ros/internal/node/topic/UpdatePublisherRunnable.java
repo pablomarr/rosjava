@@ -18,7 +18,7 @@ package org.ros.internal.node.topic;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.ros.internal.exception.RemoteException;
+import org.ros.exception.RemoteException;
 import org.ros.internal.node.client.SlaveClient;
 import org.ros.internal.node.response.Response;
 import org.ros.internal.node.server.SlaveIdentifier;
@@ -33,7 +33,7 @@ class UpdatePublisherRunnable<MessageType> implements Runnable {
 
   private static final Log log = LogFactory.getLog(UpdatePublisherRunnable.class);
 
-  private final Subscriber<MessageType> subscriber;
+  private final DefaultSubscriber<MessageType> subscriber;
   private final PublisherDefinition publisherDefinition;
   private final SlaveIdentifier slaveIdentifier;
 
@@ -43,7 +43,7 @@ class UpdatePublisherRunnable<MessageType> implements Runnable {
    *          Identifier of the subscriber's slave.
    * @param publisherDefinition
    */
-  public UpdatePublisherRunnable(Subscriber<MessageType> subscriber,
+  public UpdatePublisherRunnable(DefaultSubscriber<MessageType> subscriber,
       SlaveIdentifier slaveIdentifier, PublisherDefinition publisherDefinition) {
     this.subscriber = subscriber;
     this.slaveIdentifier = slaveIdentifier;
@@ -55,8 +55,9 @@ class UpdatePublisherRunnable<MessageType> implements Runnable {
     SlaveClient slaveClient;
     try {
       slaveClient = new SlaveClient(slaveIdentifier.getName(), publisherDefinition.getUri());
-      Response<ProtocolDescription> response = slaveClient.requestTopic(this.subscriber
-          .getTopicGraphName().toString(), ProtocolNames.SUPPORTED);
+      Response<ProtocolDescription> response =
+          slaveClient.requestTopic(this.subscriber.getTopicName().toString(),
+              ProtocolNames.SUPPORTED);
       // TODO(kwc): all of this logic really belongs in a protocol handler
       // registry.
       ProtocolDescription selected = response.getResult();
@@ -69,7 +70,7 @@ class UpdatePublisherRunnable<MessageType> implements Runnable {
       // TODO(damonkohler): Retry logic is needed at the XML-RPC layer.
       log.error(e);
     } catch (XmlRpcTimeoutException e) {
-      // TODO see above note re: retry
+      // TODO(damonkohler): see above note re: retry
       log.error(e);
     } catch (RuntimeException e) {
       // TODO(kwc):

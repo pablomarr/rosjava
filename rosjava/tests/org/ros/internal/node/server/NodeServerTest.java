@@ -21,10 +21,10 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import org.junit.Test;
-import org.ros.internal.node.address.Address;
-import org.ros.internal.node.address.AdvertiseAddress;
-import org.ros.internal.node.address.BindAddress;
-import org.ros.internal.node.xmlrpc.Node;
+import org.ros.address.Address;
+import org.ros.address.AdvertiseAddress;
+import org.ros.address.BindAddress;
+import org.ros.internal.node.xmlrpc.XmlRpcEndpoint;
 
 import java.net.URI;
 
@@ -33,12 +33,12 @@ import java.net.URI;
  */
 public class NodeServerTest {
 
-  class FakeNode implements Node {
+  class FakeNode implements XmlRpcEndpoint {
   }
 
   @Test
   public void testGetPublicUri() {
-    BindAddress bindAddress = BindAddress.createPublic(0);
+    BindAddress bindAddress = BindAddress.newPublic();
     NodeServer nodeServer = new NodeServer(bindAddress, new AdvertiseAddress("override"));
     try {
       nodeServer.getUri();
@@ -56,8 +56,8 @@ public class NodeServerTest {
   
   @Test
   public void testGetPrivateUri() {
-    BindAddress bindAddress = BindAddress.createPrivate(0);
-    NodeServer nodeServer = new NodeServer(bindAddress, AdvertiseAddress.createPrivate());
+    BindAddress bindAddress = BindAddress.newPrivate();
+    NodeServer nodeServer = new NodeServer(bindAddress, AdvertiseAddress.newPrivate());
     try {
       nodeServer.getUri();
       fail("Should not have succeeded before startup.");

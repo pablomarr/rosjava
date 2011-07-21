@@ -1,19 +1,20 @@
 package org.ros.actionlib.client;
 
-import org.ros.DefaultNode;
-import org.ros.MessageListener;
-import org.ros.Node;
-import org.ros.NodeConfiguration;
-import org.ros.NodeMain;
-import org.ros.Publisher;
-import org.ros.Subscriber;
 import org.ros.actionlib.ActionSpec;
 import org.ros.exception.RosException;
 import org.ros.message.Duration;
 import org.ros.message.Message;
+import org.ros.message.MessageListener;
 import org.ros.message.Time;
 import org.ros.message.actionlib_msgs.GoalID;
 import org.ros.message.actionlib_msgs.GoalStatusArray;
+import org.ros.node.DefaultNodeFactory;
+import org.ros.node.Node;
+import org.ros.node.NodeConfiguration;
+import org.ros.node.NodeFactory;
+import org.ros.node.NodeMain;
+import org.ros.node.topic.Publisher;
+import org.ros.node.topic.Subscriber;
 
 /**
  * An ActionClient is the client interface of the actionlib package. It provides
@@ -172,10 +173,11 @@ public class ActionClient<T_ACTION_FEEDBACK extends Message, T_ACTION_GOAL exten
 
   @Override
   public void main(NodeConfiguration configuration) throws Exception {
+    NodeFactory nodeFactory = new DefaultNodeFactory();
     if (parent != null)
-      initClient(new DefaultNode(parent.resolveName(nodeName), configuration));
+      initClient(nodeFactory.newNode(parent.resolveName(nodeName), configuration));
     else
-      initClient(new DefaultNode(nodeName, configuration));
+      initClient(nodeFactory.newNode(nodeName, configuration));
   }
 
   /**
@@ -197,7 +199,7 @@ public class ActionClient<T_ACTION_FEEDBACK extends Message, T_ACTION_GOAL exten
       }
     };
     subFeedback =
-        node.createSubscriber("feedback", spec.getActionFeedbackMessage(), feedbackCallback);
+        node.newSubscriber("feedback", spec.getActionFeedbackMessage(), feedbackCallback);
 
     MessageListener<T_ACTION_RESULT> resultCallback = new MessageListener<T_ACTION_RESULT>() {
       @Override
@@ -205,7 +207,7 @@ public class ActionClient<T_ACTION_FEEDBACK extends Message, T_ACTION_GOAL exten
         doResultCallback(actionResult);
       }
     };
-    subResult = node.createSubscriber("result", spec.getActionResultMessage(), resultCallback);
+    subResult = node.newSubscriber("result", spec.getActionResultMessage(), resultCallback);
 
     MessageListener<GoalStatusArray> statusCallback = new MessageListener<GoalStatusArray>() {
       @Override
@@ -213,10 +215,10 @@ public class ActionClient<T_ACTION_FEEDBACK extends Message, T_ACTION_GOAL exten
         doStatusCallback(statusArray);
       }
     };
-    subStatus = node.createSubscriber("status", "actionlib_msgs/GoalStatusArray", statusCallback);
+    subStatus = node.newSubscriber("status", "actionlib_msgs/GoalStatusArray", statusCallback);
 
-    pubGoal = node.createPublisher("goal", spec.getActionGoalMessage());
-    pubCancelGoal = node.createPublisher("cancel", "actionlib_msgs/GoalID");
+    pubGoal = node.newPublisher("goal", spec.getActionGoalMessage());
+    pubCancelGoal = node.newPublisher("cancel", "actionlib_msgs/GoalID");
 
     // Uses the node of the action client so must be done here.
     goalManager =

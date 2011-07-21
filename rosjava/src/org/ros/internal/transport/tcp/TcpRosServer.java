@@ -27,8 +27,8 @@ import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
-import org.ros.internal.node.address.AdvertiseAddress;
-import org.ros.internal.node.address.BindAddress;
+import org.ros.address.AdvertiseAddress;
+import org.ros.address.BindAddress;
 import org.ros.internal.node.service.ServiceManager;
 import org.ros.internal.node.topic.TopicManager;
 
@@ -41,7 +41,8 @@ import java.util.concurrent.Executors;
  * The TCP server which is used for data communication between publishers and
  * subscribers or between a service and a service client.
  * 
- * <p>This server is used after publishers, subscribers, services and service
+ * <p>
+ * This server is used after publishers, subscribers, services and service
  * clients have been told about each other by the master.
  * 
  * @author damonkohler@google.com (Damon Kohler)
@@ -55,7 +56,7 @@ public class TcpRosServer {
   private final AdvertiseAddress advertiseAddress;
   private final TopicManager topicManager;
   private final ServiceManager serviceManager;
-  
+
   private ChannelFactory channelFactory;
   private ServerBootstrap bootstrap;
   private Channel outgoingChannel;
@@ -80,7 +81,7 @@ public class TcpRosServer {
     incomingChannelGroup = new DefaultChannelGroup();
     bootstrap.setPipelineFactory(new TcpServerPipelineFactory(incomingChannelGroup, topicManager,
         serviceManager));
-    
+
     outgoingChannel = bootstrap.bind(bindAddress.toInetSocketAddress());
     advertiseAddress.setPortCallable(new Callable<Integer>() {
       @Override

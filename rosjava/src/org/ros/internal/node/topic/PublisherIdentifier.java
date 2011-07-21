@@ -16,8 +16,8 @@
 
 package org.ros.internal.node.topic;
 
-import org.ros.internal.namespace.GraphName;
 import org.ros.internal.node.server.SlaveIdentifier;
+import org.ros.namespace.GraphName;
 
 import java.net.URI;
 
@@ -31,7 +31,7 @@ public class PublisherIdentifier {
 
   public static PublisherIdentifier
       createFromStrings(String nodeName, String uri, String topicName) {
-    return new PublisherIdentifier(SlaveIdentifier.createFromStrings(nodeName, uri),
+    return new PublisherIdentifier(SlaveIdentifier.newFromStrings(nodeName, uri),
         TopicIdentifier.createFromString(topicName));
   }
 

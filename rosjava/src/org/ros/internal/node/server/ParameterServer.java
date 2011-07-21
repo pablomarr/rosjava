@@ -25,8 +25,8 @@ import com.google.common.collect.Sets;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.ros.internal.namespace.GraphName;
 import org.ros.internal.node.client.SlaveClient;
+import org.ros.namespace.GraphName;
 
 import java.util.Collection;
 import java.util.List;
@@ -220,7 +220,7 @@ public class ParameterServer {
 
   public Collection<GraphName> getNames() {
     Set<GraphName> names = Sets.newHashSet();
-    return getSubtreeNames(GraphName.createRoot(), tree, names);
+    return getSubtreeNames(GraphName.newRoot(), tree, names);
   }
 
 }
