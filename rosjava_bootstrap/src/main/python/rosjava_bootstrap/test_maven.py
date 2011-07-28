@@ -26,17 +26,50 @@ SAMPLE_PACKAGE_DEPENDENCY = 'sample_package_dependency'
 
 class TestMaven(base_test_case.BaseTestCase):
 
-    def test_walk_export_path(self):
+    def test_walk_export_path_dependencies_only(self):
         rospack = roslib.packages.ROSPackages()
+        exports = []
 
         def export_operator(package, package_directory, export):
-            pass
+            exports.append(export.attrs)
+            self.assertEqual(SAMPLE_PACKAGE_DEPENDENCY, package)
 
         def package_operator(package):
-            pass
+            self.assertEqual(SAMPLE_PACKAGE_DEPENDENCY, package)
+        
+        maven.map_package_dependencies(rospack, SAMPLE_PACKAGE, export_operator, package_operator)
+        expected_exports = [
+                {'version': '0.0.0', 'groupId': 'com.domain',
+                 'artifactId': 'com.domain.sample_dependency'},
+                {'version': '0.0.0', 'location': 'target/', 'groupId': 'com.domain',
+                 'artifactId': 'com.domain.sample_dependency.with_location'},
+                {'groupId': 'com.domain', 'location': 'target/', 'built': 'True','version': '0.0.0',
+                 'artifactId': 'com.domain.sample_dependency.built_with_location'},
+                ]
+        self.assertListEqual(expected_exports, exports)
 
-        maven.walk_export_path(rospack, SAMPLE_PACKAGE, export_operator, package_operator)
+    def test_map_package_exports(self):
+        rospack = roslib.packages.ROSPackages()
+        exports = []
 
+        def export_operator(package, package_directory, export):
+            exports.append(export.attrs)
+            self.assertTrue(package in (SAMPLE_PACKAGE, SAMPLE_PACKAGE_DEPENDENCY))
+
+        def package_operator(package):
+            self.assertTrue(package in (SAMPLE_PACKAGE, SAMPLE_PACKAGE_DEPENDENCY))
+
+        maven.map_package_exports(rospack, SAMPLE_PACKAGE, export_operator)
+        
+        expected_exports = [
+                {'version': '0.0.0', 'groupId': 'com.domain', 'artifactId': 'com.domain.sample'},
+                {'version': '0.0.0', 'location': 'target/', 'groupId': 'com.domain',
+                 'artifactId': 'com.domain.sample.with_location'},
+                {'version': '0.0.0', 'location': 'target/', 'groupId': 'com.domain',
+                 'built': 'True', 'artifactId': 'com.domain.sample.built_with_location'},
+                ]
+        self.assertListEqual(expected_exports, exports)
+ 
     def test_get_package_build_artifact(self):
         rospack = roslib.packages.ROSPackages()
         artifact = maven.get_package_build_artifact(rospack, SAMPLE_PACKAGE)
