@@ -34,15 +34,10 @@
 import os
 import sys
 import subprocess
+from optparse import OptionParser
 
 import roslib
-
-
-def usage():
-    print "generate_msg_depends.py <package-name>"
-    sys.exit(os.EX_USAGE)
-    
-    
+   
 BOOTSTRAP_PKG = 'rosjava_bootstrap'
 
 _ros_home = roslib.rosenv.get_ros_home()
@@ -231,6 +226,7 @@ def get_msg_classpath(rospack, package):
             pathelements.append(msg_jar_file_path(pkg))
     return os.pathsep.join([os.path.abspath(p) for p in pathelements])
 
+
 def wipe_msg_depends(package):
     rospack = roslib.packages.ROSPackages()
     
@@ -245,7 +241,7 @@ def wipe_msg_depends(package):
                    'clean']
         subprocess.check_call(command)
     
-from optparse import OptionParser
+    
 def generate_msg_depends_main(argv=None):
     parser = OptionParser(usage="usage: %prog [options] <package>", prog='generate_msg_depends.py')
     parser.add_option('--wipe', default=False, action="store_true", dest="wipe")
@@ -261,6 +257,7 @@ def generate_msg_depends_main(argv=None):
         wipe_msg_depends(package)
     else:
         generate_msg_depends(package)        
+    
     
 if __name__ == '__main__':
     generate_msg_depends_main()

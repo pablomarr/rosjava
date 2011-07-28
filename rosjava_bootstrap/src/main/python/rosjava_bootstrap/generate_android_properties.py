@@ -17,7 +17,6 @@
 __author__ = 'damonkohler@google.com (Damon Kohler)'
 
 import os
-import sys
 
 import android
 import roslib
@@ -53,31 +52,3 @@ def generate_properties(rospack, package):
         props['android.library'] = 'true'
         
     return props
-
-
-def print_sorted_properties(properties, stream=sys.stdout):
-    for key in sorted(properties):
-        print >>stream, '%s=%s' % (key, properties[key])
-        
-        
-def _usage():
-    print 'generate_android_properties.py <package-name>'
-    sys.exit(os.EX_USAGE)
-
-
-def main(argv):
-    if len(argv) != 2:
-        _usage()
-    package = argv[1]
-    rospack = roslib.packages.ROSPackages()
-    properties = generate_properties(rospack, package)
-    if properties is not None:
-        print_sorted_properties(properties)
-
-
-if __name__ == '__main__':
-    try:
-        main(sys.argv)
-    except roslib.packages.InvalidROSPkgException as e:
-        print >>sys.stderr, 'ERROR: %s' % str(e)
-        sys.exit(1)
