@@ -30,6 +30,7 @@ import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
+import org.ros.concurrent.CancellableLoop;
 import org.ros.exception.RosRuntimeException;
 import org.ros.internal.node.server.SlaveIdentifier;
 import org.ros.internal.transport.ConnectionHeader;
@@ -43,7 +44,6 @@ import org.ros.node.topic.SubscriberListener;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -52,7 +52,7 @@ import java.util.concurrent.ExecutorService;
 
 /**
  * Default implementation of the {@link Subscriber}.
- * 
+ *
  * @author damonkohler@google.com (Damon Kohler)
  */
 public class DefaultSubscriber<MessageType> extends DefaultTopic implements Subscriber<MessageType> {
@@ -64,54 +64,26 @@ public class DefaultSubscriber<MessageType> extends DefaultTopic implements Subs
 
   private final ExecutorService executorService;
   private final ImmutableMap<String, String> header;
-  private final CopyOnWriteArrayList<MessageListener<MessageType>> listeners;
-  private final IncomingMessageQueue<MessageType> in;
+  private final CopyOnWriteArrayList<MessageListener<MessageType>> messageListeners;
+  private final CopyOnWriteArrayList<SubscriberListener> subscriberListeners;
+  private final IncomingMessageQueue<MessageType> incomingMessageQueue;
   private final MessageReader messageReader;
   private final Set<PublisherIdentifier> knownPublishers;
   private final SlaveIdentifier slaveIdentifier;
   private final ChannelGroup channelGroup;
-  private TcpClientPipelineFactory tcpClientPipelineFactory;
-  private ClientBootstrap bootstrap; 
- 
-  /**
-   * All {@link SubscriberListener} instances added to the subscriber.
-   */
-  private final List<SubscriberListener> subscriberListeners = new ArrayList<SubscriberListener>();
+  private final TcpClientPipelineFactory tcpClientPipelineFactory;
+  private final ClientBootstrap bootstrap;
 
-  private final class MessageReader implements Runnable {
-	/**
-	 * Thread the reader is running in.
-	 */
-	private Thread thread;
-	
+  private final class MessageReader extends CancellableLoop {
     @Override
-    public void run() {
-      thread = Thread.currentThread();
-      try {
-        while (!thread.isInterrupted()) {
-          MessageType message = in.take();
-          if (DEBUG) {
-            log.info("Received message: " + message + " " + message.getClass().getCanonicalName());
-          }
-          for (MessageListener<MessageType> listener : listeners) {
-            if (thread.isInterrupted()) {
-              break;
-            }
-            // TODO(damonkohler): Recycle Message objects to avoid GC.
-            listener.onNewMessage(message);
-          }
-        }
-      } catch (InterruptedException e) {
-        // Cancelable
-        if (DEBUG) {
-          log.info("Canceled.");
-        }
+    public void loop() throws InterruptedException {
+      MessageType message = incomingMessageQueue.take();
+      if (DEBUG) {
+        log.info("Received message: " + message + " " + message.getClass().getCanonicalName());
       }
-    }
-
-    public void cancel() {
-      if (thread != null) {
-        thread.interrupt();
+      for (MessageListener<MessageType> listener : messageListeners) {
+        // TODO(damonkohler): Recycle Message objects to avoid GC.
+        listener.onNewMessage(message);
       }
     }
   }
@@ -126,8 +98,9 @@ public class DefaultSubscriber<MessageType> extends DefaultTopic implements Subs
       MessageDeserializer<MessageType> deserializer, ExecutorService executorService) {
     super(topicDefinition);
     this.executorService = executorService;
-    this.listeners = new CopyOnWriteArrayList<MessageListener<MessageType>>();
-    this.in = new IncomingMessageQueue<MessageType>(deserializer);
+    this.messageListeners = new CopyOnWriteArrayList<MessageListener<MessageType>>();
+    this.subscriberListeners = new CopyOnWriteArrayList<SubscriberListener>();
+    this.incomingMessageQueue = new IncomingMessageQueue<MessageType>(deserializer);
     this.slaveIdentifier = slaveIdentifier;
     header =
         ImmutableMap.<String, String>builder().putAll(slaveIdentifier.toHeader())
@@ -141,7 +114,7 @@ public class DefaultSubscriber<MessageType> extends DefaultTopic implements Subs
       public ChannelPipeline getPipeline() {
         ChannelPipeline pipeline = super.getPipeline();
         pipeline.addLast("SubscriberHandshakeHandler", new SubscriberHandshakeHandler<MessageType>(
-            header, in));
+            header, incomingMessageQueue));
         return pipeline;
       }
     };
@@ -159,12 +132,12 @@ public class DefaultSubscriber<MessageType> extends DefaultTopic implements Subs
 
   @Override
   public void addMessageListener(MessageListener<MessageType> listener) {
-    listeners.add(listener);
+    messageListeners.add(listener);
   }
 
   @Override
   public void removeMessageListener(MessageListener<MessageType> listener) {
-    listeners.remove(listener);
+    messageListeners.remove(listener);
   }
 
   @VisibleForTesting
@@ -212,27 +185,21 @@ public class DefaultSubscriber<MessageType> extends DefaultTopic implements Subs
     // Not calling channelFactory.releaseExternalResources() or 
     // bootstrap.releaseExternalResources() since only external resources are the
     // ExecutorService and control of that must remain with the overall application.
-    
     signalShutdown();
   }
 
   @Override
-  public String toString() {
-    return "Subscriber<" + getTopicDefinition() + ">";
-  }
-  
-  @Override
   public void addSubscriberListener(SubscriberListener listener) {
-	subscriberListeners.add(listener);
+    subscriberListeners.add(listener);
   }
 
   @Override
   public void removeSubscriberListener(SubscriberListener listener) {
-	subscriberListeners.add(listener);
+    subscriberListeners.add(listener);
   }
 
   /**
-   * Notify listeners that the node has been registered.
+   * Notify messageListeners that the node has been registered.
    * 
    * <p>
    * Done in another thread.
@@ -250,7 +217,7 @@ public class DefaultSubscriber<MessageType> extends DefaultTopic implements Subs
   }
 
   /**
-   * Notify listeners that there have been remote connections.
+   * Notify messageListeners that there have been remote connections.
    * 
    * <p>
    * Done in another thread.
@@ -268,7 +235,7 @@ public class DefaultSubscriber<MessageType> extends DefaultTopic implements Subs
   }
   
   /**
-   * Notify listeners that the subscriber has shutdown.
+   * Notify messageListeners that the subscriber has shutdown.
    * 
    * <p>
    * Done in another thread.
@@ -283,6 +250,21 @@ public class DefaultSubscriber<MessageType> extends DefaultTopic implements Subs
 	    }
 	  }
     });
+  }
+
+  @Override
+  public String toString() {
+    return "Subscriber<" + getTopicDefinition() + ">";
+  }
+
+  @Override
+  public void setQueueLimit(int limit) {
+    incomingMessageQueue.setLimit(limit);
+  }
+
+  @Override
+  public int getQueueLimit() {
+    return incomingMessageQueue.getLimit();
   }
 
 }
