@@ -69,4 +69,14 @@ public interface Subscriber<MessageType> extends Topic {
    */
   void removeSubscriberListener(SubscriberListener listener);
 
+  /**
+   * @param limit
+   *          the maximum number of incoming messages to queue (i.e. buffer)
+   */
+  void setQueueLimit(int limit);
+
+  /**
+   * @return the maximum number of incoming messages to queue (i.e. buffer)
+   */
+  int getQueueLimit();
 }

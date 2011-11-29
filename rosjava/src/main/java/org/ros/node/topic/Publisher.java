@@ -91,4 +91,14 @@ public interface Publisher<MessageType> extends Topic {
    */
   void removePublisherListener(PublisherListener listener);
 
+  /**
+   * @param limit
+   *          the maximum number of messages to queue (i.e. buffer) for sending
+   */
+  void setQueueLimit(int limit);
+
+  /**
+   * @return the maximum number of messages to queue (i.e. buffer) for sending
+   */
+  int getQueueLimit();
 }

@@ -29,6 +29,7 @@ import org.ros.internal.transport.OutgoingMessageQueue;
 import org.ros.message.MessageSerializer;
 import org.ros.node.topic.Publisher;
 import org.ros.node.topic.PublisherListener;
+import org.ros.node.topic.Subscriber;
 
 import java.util.List;
 import java.util.Map;
@@ -50,7 +51,7 @@ public class DefaultPublisher<MessageType> extends DefaultTopic implements Publi
   /**
    * Queue of all messages being published by this publisher.
    */
-  private final OutgoingMessageQueue<MessageType> outgoingMessages;
+  private final OutgoingMessageQueue<MessageType> outgoingMessageQueue;
 
   /**
    * All {@link PublisherListener} instances added to the publisher.
@@ -59,7 +60,7 @@ public class DefaultPublisher<MessageType> extends DefaultTopic implements Publi
       new CopyOnWriteArrayList<PublisherListener>();
 
   /**
-   * Th {@link ExecutorService} to be used for all thread creation.
+   * The {@link ExecutorService} to be used for all thread creation.
    */
   private final ExecutorService executorService;
 
@@ -67,22 +68,17 @@ public class DefaultPublisher<MessageType> extends DefaultTopic implements Publi
       MessageSerializer<MessageType> serializer, ExecutorService executorService) {
     super(topicDefinition);
     this.executorService = executorService;
-
-    // TODO(khughes): Use the handed in ExecutorService in the
-    // OutgoingMessageQueue.
-    outgoingMessages = new OutgoingMessageQueue<MessageType>(serializer);
-    outgoingMessages.start();
+    outgoingMessageQueue = new OutgoingMessageQueue<MessageType>(serializer, executorService);
   }
 
   @Override
   public void setLatchMode(boolean enabled) {
-    outgoingMessages.setLatchMode(enabled);
+    outgoingMessageQueue.setLatchMode(enabled);
   }
 
   @Override
   public void shutdown() {
-    outgoingMessages.shutdown();
-
+    outgoingMessageQueue.shutdown();
     signalShutdown();
   }
 
@@ -92,12 +88,12 @@ public class DefaultPublisher<MessageType> extends DefaultTopic implements Publi
 
   @Override
   public boolean hasSubscribers() {
-    return outgoingMessages.getNumberChannels() > 0;
+    return outgoingMessageQueue.getNumberOfChannels() > 0;
   }
 
   @Override
   public int getNumberOfSubscribers() {
-    return outgoingMessages.getNumberChannels();
+    return outgoingMessageQueue.getNumberOfChannels();
   }
 
   // TODO(damonkohler): Recycle Message objects to avoid GC.
@@ -106,7 +102,7 @@ public class DefaultPublisher<MessageType> extends DefaultTopic implements Publi
     if (DEBUG) {
       log.info("Publishing message: " + message);
     }
-    outgoingMessages.put(message);
+    outgoingMessageQueue.put(message);
   }
 
   /**
@@ -135,6 +131,7 @@ public class DefaultPublisher<MessageType> extends DefaultTopic implements Publi
     return ConnectionHeader.encode(header);
   }
 
+
   /**
    * A remote {@link Subscriber} is being added to this publisher.
    * 
@@ -145,7 +142,7 @@ public class DefaultPublisher<MessageType> extends DefaultTopic implements Publi
     if (DEBUG) {
       log.info("Adding channel: " + channel);
     }
-    outgoingMessages.addChannel(channel);
+    outgoingMessageQueue.addChannel(channel);
     signalRemoteConnection();
   }
 
@@ -218,4 +215,13 @@ public class DefaultPublisher<MessageType> extends DefaultTopic implements Publi
     return "Publisher<" + getTopicDefinition() + ">";
   }
 
+  @Override
+  public void setQueueLimit(int limit) {
+    outgoingMessageQueue.setLimit(limit);
+  }
+
+  @Override
+  public int getQueueLimit() {
+    return outgoingMessageQueue.getLimit();
+  }
 }
